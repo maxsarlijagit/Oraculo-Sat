@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORÁCULO · Estación de Análisis Satelital Global</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Spline+Sans+Mono:wght@400;500;600&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#0a0c08;--panel:#11140d;--sand:#cfa75f;--rust:#bb5a2e;--pale:#ece6d4;
+    --dim:#8c8772;--line:#262a1b;--good:#6f9a54;--info:#4a86a8;--glow:#d9b56e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--pale);font-family:'Spline Sans Mono',monospace;overflow:hidden}
+  #app{display:grid;grid-template-columns:320px 1fr 340px;height:100vh}
+  .col{height:100vh;overflow:hidden;display:flex;flex-direction:column}
+  .colL{background:linear-gradient(165deg,#11140d,#0a0c08);border-right:1px solid var(--line)}
+  .colR{background:linear-gradient(195deg,#11140d,#0a0c08);border-left:1px solid var(--line)}
+  .scroll{flex:1;overflow-y:auto;padding:16px 18px 50px}
+  .scroll::-webkit-scrollbar{width:6px}.scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+
+  .head{padding:18px;border-bottom:1px solid var(--line);background:radial-gradient(120% 90% at 0 0,rgba(187,90,46,.16),transparent 60%)}
+  .head h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:21px;letter-spacing:-.5px;line-height:1.05}
+  .head h1 span{color:var(--sand)}
+  .head p{font-size:10px;color:var(--dim);margin-top:6px;line-height:1.5}
+  .status{font-size:9px;margin-top:8px;display:flex;flex-wrap:wrap;gap:5px}
+  .pill{padding:2px 7px;border:1px solid var(--line);border-radius:10px;color:var(--dim)}
+  .pill.ok{color:var(--good);border-color:var(--good)}.pill.load{color:var(--sand);border-color:var(--sand)}
+
+  .sect{margin-bottom:22px}
+  .sect-t{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--sand);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .sect-t::before{content:"";width:6px;height:6px;background:var(--rust);transform:rotate(45deg)}
+
+  .target{border:1px solid var(--line);padding:9px 11px;margin-bottom:6px;cursor:pointer;transition:.16s;position:relative;overflow:hidden}
+  .target:hover{border-color:var(--rust);transform:translateX(3px)}
+  .target::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--rust);transform:scaleY(0);transition:.2s;transform-origin:top}
+  .target:hover::before{transform:scaleY(1)}
+  .target .tn{font-size:11px;color:var(--pale);font-weight:600;display:flex;justify-content:space-between;gap:6px}
+  .tag{font-size:7px;padding:2px 5px;letter-spacing:.5px;align-self:flex-start;white-space:nowrap}
+  .tag.arq{background:var(--sand);color:#1a1a1a}.tag.min{background:var(--good)}.tag.agua{background:var(--info)}.tag.nau{background:var(--rust)}
+  .target .td{font-size:9px;color:var(--dim);margin-top:4px;line-height:1.4}
+
+  .tool{width:100%;text-align:left;background:rgba(255,255,255,.015);border:1px solid var(--line);color:var(--pale);padding:9px 11px;margin-bottom:6px;cursor:pointer;font-family:inherit;font-size:11px;transition:.16s;display:flex;align-items:center;gap:9px}
+  .tool:hover:not(:disabled){border-color:var(--sand);background:rgba(207,167,95,.07)}
+  .tool:disabled{opacity:.35;cursor:not-allowed}
+  .tool .ti{width:18px;text-align:center;color:var(--sand);font-size:13px}
+  .tool small{display:block;font-size:8px;color:var(--dim);margin-top:2px}
+
+  .colC{position:relative;background:#0a0c07}
+  #map{height:100%;width:100%}
+  .leaflet-container{font-family:'Spline Sans Mono',monospace;background:#0a0c07}
+  #hud{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(10,12,8,.9);border:1px solid var(--line);padding:7px 15px;font-size:10px;color:var(--sand);z-index:500;backdrop-filter:blur(6px);letter-spacing:.5px;pointer-events:none;max-width:80%;text-align:center}
+  #searchbox{position:absolute;top:14px;left:14px;z-index:500;display:flex;gap:5px}
+  #searchbox input{background:rgba(10,12,8,.92);border:1px solid var(--line);color:var(--pale);padding:7px 11px;font-family:inherit;font-size:11px;width:180px;backdrop-filter:blur(6px)}
+  #searchbox input:focus{outline:none;border-color:var(--sand)}
+  #searchbox button{background:var(--rust);border:none;color:#fff;padding:0 11px;cursor:pointer;font-family:inherit;font-size:11px}
+
+  /* analysis stage */
+  #stage{position:absolute;inset:0;z-index:600;background:rgba(8,10,6,.98);display:none;flex-direction:column}
+  #stage.on{display:flex}
+  .stagebar{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .stagebar .t{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:14px}.stagebar .t span{color:var(--sand)}
+  .xbtn{background:transparent;border:1px solid var(--line);color:var(--dim);padding:5px 11px;cursor:pointer;font-family:inherit;font-size:11px}
+  .xbtn:hover{border-color:var(--rust);color:var(--rust)}
+  #canvaswrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:16px;position:relative}
+  #cv-canvas{max-width:100%;max-height:100%;border:1px solid var(--line);background:#000}
+  #busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(8,10,6,.65);z-index:10}
+  #busy.on{display:flex}
+  .spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--sand);border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* intel panel (right) */
+  .intel-empty{font-size:11px;color:var(--dim);line-height:1.6;text-align:center;padding:30px 10px}
+  .intel-empty .big{font-size:30px;color:var(--sand);display:block;margin-bottom:12px}
+  .ipoint{border:1px solid var(--line);padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.012)}
+  .ipoint h3{font-family:'Bricolage Grotesque',sans-serif;font-size:13px;color:var(--pale);margin-bottom:4px}
+  .ipoint .coord{font-size:9px;color:var(--sand);margin-bottom:8px}
+  .ibadge{display:inline-block;font-size:8px;padding:2px 6px;margin:0 4px 4px 0;letter-spacing:.5px}
+  .ibadge.explored{background:var(--info);color:#fff}.ibadge.unexplored{background:var(--rust);color:#fff}.ibadge.none{background:var(--line);color:var(--dim)}
+  .iitem{font-size:10px;color:var(--pale);line-height:1.5;padding:7px 0;border-bottom:1px solid var(--line)}
+  .iitem a{color:var(--sand);text-decoration:none}.iitem a:hover{text-decoration:underline}
+  .iitem .meta{font-size:8px;color:var(--dim);margin-top:2px}
+  .iphoto{width:100%;border:1px solid var(--line);margin-bottom:6px;display:block}
+  .ilinks{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .ilink{font-size:9px;background:rgba(207,167,95,.08);border:1px solid var(--line);color:var(--sand);padding:5px 8px;text-decoration:none;transition:.15s}
+  .ilink:hover{border-color:var(--sand);background:rgba(207,167,95,.16)}
+  .icost{font-size:9px;color:var(--dim);line-height:1.5;border-left:2px solid var(--rust);padding-left:9px;margin-top:8px}
+  .loading-i{font-size:10px;color:var(--sand);padding:8px 0}
+
+  .slider{margin:8px 0 4px}.slider label{font-size:9px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:5px}
+  .slider input{width:100%;accent-color:var(--rust);height:3px}
+  .btn{width:100%;background:var(--rust);color:#fff;border:none;padding:9px;font-family:inherit;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.16s;margin-top:6px}
+  .btn:hover{background:var(--sand);color:#1a1a1a}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}.btn.ghost:hover{border-color:var(--sand);color:var(--sand)}
+  .note{font-size:9px;color:var(--dim);line-height:1.5;border-left:2px solid var(--line);padding-left:9px;margin-top:8px}
+
+  /* timeline */
+  #timeline{display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(10,12,8,.94);border:1px solid var(--line);padding:10px 16px;backdrop-filter:blur(6px);width:60%;max-width:560px}
+  #timeline.on{display:block}
+  #timeline .tl-t{font-size:9px;color:var(--sand);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;display:flex;justify-content:space-between}
+  #timeline input{width:100%;accent-color:var(--rust)}
+  #timeline .tl-date{font-size:11px;color:var(--pale);text-align:center;margin-top:5px}
+
+  .mc{background:rgba(10,12,8,.92);border:1px solid var(--line);color:var(--pale);padding:7px 11px;font-family:inherit;font-size:10px;cursor:pointer;backdrop-filter:blur(6px);transition:.15s;text-align:left}
+  .mc:hover,.mc.on{border-color:var(--sand);color:var(--sand);background:rgba(207,167,95,.12)}
+  #measureInfo{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(10,12,8,.94);border:1px solid var(--sand);color:var(--sand);padding:7px 14px;font-size:11px;display:none;backdrop-filter:blur(6px)}
+  #measureInfo.on{display:block}
+
+  /* curtain comparator */
+  #curtain{position:absolute;inset:0;z-index:450;display:none}
+  #curtain.on{display:block}
+  #curtainClip{position:absolute;inset:0;overflow:hidden;width:50%}
+  #curtainHandle{position:absolute;top:0;bottom:0;left:50%;width:3px;background:var(--sand);z-index:460;cursor:ew-resize;box-shadow:0 0 12px rgba(217,181,110,.6)}
+  #curtainHandle::after{content:"◑";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--sand);color:#0a0c08;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .curtain-lbl{position:absolute;top:14px;z-index:461;background:rgba(10,12,8,.9);color:var(--sand);font-size:11px;padding:4px 10px;border:1px solid var(--line)}
+
+  #view3d{position:absolute;inset:0;z-index:650;background:#06070a;display:none;flex-direction:column}
+  #view3d.on{display:flex}
+  #three-wrap{flex:1;position:relative;overflow:hidden}
+  #three-wrap canvas{display:block}
+  #three-busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:5}
+  #three-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(6,7,10,.85);border:1px solid var(--line);color:var(--dim);font-size:10px;padding:6px 14px;z-index:6;pointer-events:none}
+
+  /* onboarding */
+  #onboard{position:fixed;inset:0;z-index:9000;background:rgba(6,7,5,.92);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+  #onboard.hidden{display:none}
+  .ob-card{max-width:440px;background:linear-gradient(165deg,#15180f,#0d0f0a);border:1px solid var(--sand);padding:28px;position:relative}
+  .ob-card h2{font-family:'Bricolage Grotesque',sans-serif;font-size:22px;color:var(--pale);margin-bottom:4px}
+  .ob-card h2 span{color:var(--sand)}
+  .ob-step{font-size:12px;color:var(--pale);line-height:1.7;margin:14px 0}
+  .ob-step b{color:var(--sand)}
+  .ob-nav{display:flex;justify-content:space-between;align-items:center;margin-top:20px}
+  .ob-dots{display:flex;gap:6px}.ob-dot{width:7px;height:7px;border-radius:50%;background:var(--line)}.ob-dot.on{background:var(--sand)}
+  .helpbtn{position:absolute;bottom:14px;left:14px;z-index:500;width:30px;height:30px;border-radius:50%;background:rgba(10,12,8,.92);border:1px solid var(--line);color:var(--sand);cursor:pointer;font-size:14px;backdrop-filter:blur(6px)}
+  .helpbtn:hover{border-color:var(--sand)}
+
+  /* saved points */
+  .saved{border:1px solid var(--line);padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:.15s;position:relative}
+  .saved:hover{border-color:var(--sand);background:rgba(207,167,95,.06)}
+  .saved .sn{font-size:11px;color:var(--pale);font-weight:600}
+  .saved .sc{font-size:9px;color:var(--sand);font-family:monospace}
+  .saved .sx{position:absolute;top:6px;right:8px;color:var(--dim);font-size:13px;cursor:pointer}
+  .saved .sx:hover{color:var(--rust)}
+
+  /* api status chips */
+  .apistat{font-size:8px;padding:1px 6px;border-radius:8px;margin-left:6px}
+  .apistat.ok{color:var(--good);border:1px solid var(--good)}
+  .apistat.fail{color:var(--rust);border:1px solid var(--rust)}
+  .apistat.load{color:var(--sand);border:1px solid var(--sand)}
+  .retry{font-size:9px;color:var(--sand);cursor:pointer;text-decoration:underline;margin-left:6px}
+
+  /* depth readout */
+  .depthbox{background:#0a0c07;border:1px solid var(--info);padding:9px 11px;margin:8px 0;font-size:10px;color:var(--info);line-height:1.5}
+
+  /* signature */
+  .sig{padding:14px 18px;border-top:1px solid var(--line);text-align:center}
+  .sig .pb{font-size:8px;color:var(--dim);letter-spacing:2px;text-transform:uppercase}
+  .sig .name{font-family:'Caveat',cursive;font-size:30px;color:var(--sand);line-height:.9;margin-top:2px;text-shadow:0 1px 12px rgba(217,181,110,.25);transform:rotate(-3deg)}
+  .sig .name::after{content:"";display:block;width:120px;height:2px;margin:3px auto 0;background:linear-gradient(90deg,transparent,var(--sand),transparent);transform:rotate(1deg)}
+
+  @media(max-width:1150px){#app{grid-template-columns:280px 1fr 300px}}
+</style>
+</head>
+<body>
+<div id="onboard" class="hidden">
+  <div class="ob-card">
+    <h2>ORÁCULO <span>SAT</span></h2>
+    <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">Guía rápida</div>
+    <div id="obContent"></div>
+    <div class="ob-nav">
+      <div class="ob-dots" id="obDots"></div>
+      <div>
+        <button class="btn ghost" id="obSkip" style="width:auto;display:inline-block;margin:0 6px 0 0;padding:8px 14px">Saltar</button>
+        <button class="btn" id="obNext" style="width:auto;display:inline-block;margin:0;padding:8px 18px">Siguiente</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="app">
+
+  <!-- LEFT -->
+  <div class="col colL">
+    <div class="head">
+      <h1>ORÁCULO <span>SAT</span></h1>
+      <p>Análisis satelital global · clic en cualquier punto del mundo para inteligencia automática.</p>
+      <div class="status">
+        <span class="pill load" id="pcv">⟳ visión</span>
+        <span class="pill ok">✓ mapa global</span>
+        <span class="pill ok">✓ Wikipedia</span>
+      </div>
+    </div>
+    <div class="scroll">
+      <div class="sect">
+        <div class="sect-t">Capa base</div>
+        <div id="layers"></div>
+      </div>
+      <div class="sect">
+        <div class="sect-t">Zonas precargadas</div>
+        <div id="targets"></div>
+        <div class="note">O tocá cualquier punto del planeta en el mapa.</div>
+      </div>
+      <div class="sect">
+        <div class="sect-t">Análisis temporal</div>
+        <button class="btn ghost" id="toggleTL">Activar línea de tiempo Sentinel</button>
+        <div class="note">Compará la misma zona en distintas fechas. Lo que no cambia entre años = candidato (ruina, naufragio). Lo que varía = agua, vegetación.</div>
+      </div>
+
+      <div class="sect">
+        <div class="sect-t">Mis investigaciones</div>
+        <div id="savedList"><div class="note" style="margin-top:0">Todavía no guardaste puntos. Seleccioná uno y tocá "Guardar punto" en el panel derecho.</div></div>
+        <button class="btn ghost" id="exportProj" style="margin-top:8px">↧ Exportar proyecto (.json)</button>
+        <button class="btn ghost" id="importProj">↥ Importar proyecto</button>
+        <button class="btn ghost" id="exportKML">🌍 Exportar a Google Earth (.kml)</button>
+        <input type="file" id="importFile" accept=".json" hidden>
+        <div id="saveMode" class="note" style="margin-top:8px"></div>
+      </div>
+
+      <div class="sect">
+        <div class="sect-t">Configuración API</div>
+        <div class="note" style="margin-top:0">Opcional. Si usás este archivo descargado (fuera de Claude.ai), pegá tu API key de Anthropic para que funcione la opinión de Claude.</div>
+        <input type="password" id="apiKey" placeholder="sk-ant-… (opcional)" style="width:100%;margin-top:8px;background:#0a0c07;border:1px solid var(--line);color:var(--pale);font-family:inherit;font-size:10px;padding:8px">
+        <div class="note" id="apiKeyStat" style="margin-top:5px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="col colC">
+    <div id="map"></div>
+    <div id="searchbox">
+      <input id="search" placeholder="Buscar lugar…">
+      <button id="searchBtn">→</button>
+    </div>
+    <div id="hud">Tocá cualquier punto del mundo para analizarlo</div>
+    <div id="mapctrl" style="position:absolute;top:14px;right:14px;z-index:500;display:flex;flex-direction:column;gap:5px">
+      <button class="mc" id="measureBtn" title="Medir distancias y áreas">📐 Medir</button>
+      <button class="mc" id="curtainBtn" title="Comparar dos años con cortina">◑ Comparar años</button>
+      <button class="mc" id="bathyBtn" title="Capa de profundidad del mar">🌊 Batimetría</button>
+    </div>
+    <button class="helpbtn" id="helpBtn" title="Ver guía">?</button>
+    <div id="timeline">
+      <div class="tl-t"><span>LÍNEA DE TIEMPO · SENTINEL-2</span><span id="tlYear">—</span></div>
+      <input type="range" id="tlSlider" min="0" max="6" value="6">
+      <div class="tl-date" id="tlDate">deslizá para cambiar de fecha</div>
+    </div>
+    <div id="measureInfo"></div>
+    <div id="curtain">
+      <span class="curtain-lbl" style="left:14px" id="curLblA">—</span>
+      <span class="curtain-lbl" style="right:14px" id="curLblB">—</span>
+      <div id="curtainClip"></div>
+      <div id="curtainHandle"></div>
+    </div>
+    <div id="view3d">
+      <div class="stagebar">
+        <div class="t">TERRENO <span>3D</span></div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <label style="font-size:10px;color:var(--dim)">Exageración vertical <span id="vexag">3.0</span>×
+            <input type="range" id="exag" min="10" max="80" value="30" style="vertical-align:middle;accent-color:var(--rust)"></label>
+          <label style="font-size:10px;color:var(--dim)">☀ Hora <span id="vsun">14</span>h
+            <input type="range" id="sunHour" min="6" max="19" value="14" style="vertical-align:middle;accent-color:var(--sand)"></label>
+          <button class="xbtn" id="close3D">✕ volver al mapa</button>
+        </div>
+      </div>
+      <div id="three-wrap"><div id="three-busy"><div class="spin"></div><div style="font-size:11px;color:var(--sand);margin-top:10px">construyendo terreno…</div></div></div>
+      <div id="three-hint">Arrastrá para rotar · rueda para zoom · botón derecho para mover</div>
+    </div>
+    <div id="stage">
+      <div class="stagebar">
+        <div class="t">MESA DE <span>ANÁLISIS</span></div>
+        <button class="xbtn" id="closeStage">✕ volver al mapa</button>
+      </div>
+      <div id="canvaswrap">
+        <canvas id="cv-canvas"></canvas>
+        <div id="busy"><div class="spin"></div><div style="font-size:11px;color:var(--sand)">procesando…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="col colR">
+    <div class="head">
+      <h1>INTELIGENCIA</h1>
+      <p>Contexto histórico, fotos reales y herramientas de análisis del punto seleccionado.</p>
+    </div>
+    <div class="scroll">
+      <div id="intel">
+        <div class="intel-empty"><span class="big">◎</span>Tocá un punto en el mapa.<br>El sistema traerá qué hay ahí, si fue explorado, fotos reales y links de investigación.</div>
+      </div>
+
+      <div class="sect" id="toolsSect" style="display:none">
+        <div class="sect-t">Análisis de imagen</div>
+        <button class="btn" id="savePoint" style="margin-bottom:8px">★ Guardar este punto</button>
+        <button class="btn" id="grabMap">Capturar zona y analizar →</button>
+        <div style="margin-top:8px">
+          <button class="tool" data-op="contrast" disabled><span class="ti">◐</span><div>Auto-contraste (CLAHE)<small>saca detalle de zonas planas</small></div></button>
+          <button class="tool" data-op="false" disabled><span class="ti">🌡</span><div>Falso color<small>resalta anomalías por brillo</small></div></button>
+          <button class="tool" data-op="water" disabled><span class="ti">≈</span><div>Realce de agua<small>napas, humedad, costas</small></div></button>
+          <button class="tool" data-op="edges" disabled><span class="ti">▱</span><div>Bordes (Canny)<small>contornos y estructuras</small></div></button>
+          <button class="tool" data-op="lines" disabled><span class="ti">╱</span><div>Líneas rectas (Hough)<small>geometría artificial = muros, caminos</small></div></button>
+          <button class="tool" data-op="anomaly" disabled><span class="ti">◎</span><div>Mapa de anomalías<small>lo que no encaja con el entorno</small></div></button>
+          <button class="tool" data-op="detect" disabled><span class="ti">🧠</span><div>Detección IA (objetos)<small>modelo neuronal en navegador</small></div></button>
+        </div>
+        <div class="slider"><label>Sensibilidad <span id="vthr">80</span></label><input type="range" id="thr" min="20" max="200" value="80"></div>
+        <button class="btn ghost" id="reset" disabled>↺ Original</button>
+        <button class="btn ghost" id="dl" disabled>↓ Descargar resultado</button>
+      </div>
+
+      <div class="sect" id="changeSect" style="display:none">
+        <div class="sect-t">Detección de cambios</div>
+        <div class="note" style="margin-top:0">Activá la línea de tiempo, elegí dos años y el sistema marca en rojo lo que cambió entre ambos. Lo que NO cambia entre fechas = candidato permanente (ruina, naufragio, estructura).</div>
+        <div class="slider"><label>Año A <span id="vya">2019</span></label><input type="range" id="yearA" min="0" max="6" value="0"></div>
+        <div class="slider"><label>Año B <span id="vyb">2025</span></label><input type="range" id="yearB" min="0" max="6" value="6"></div>
+        <button class="btn" id="runChange">Comparar y detectar cambios</button>
+      </div>
+
+      <div class="sect" id="claudeSect" style="display:none">
+        <div class="sect-t">Segunda opinión · Claude</div>
+        <div class="note" style="margin-top:0">Claude analiza la imagen actual de la mesa de análisis y da una interpretación experta de lo que ve: anomalías, posibles estructuras, qué investigar.</div>
+        <button class="btn" id="askClaude">🔮 Pedir interpretación de Claude</button>
+        <div id="claudeOut" style="font-size:10px;color:var(--pale);line-height:1.6;margin-top:10px"></div>
+      </div>
+
+      <div class="sect" id="dossierSect" style="display:none">
+        <div class="sect-t">Terreno 3D</div>
+        <div class="note" style="margin-top:0">Levanta en 3D el pedazo de terreno que estás viendo, con elevación real (DEM). La exageración vertical hace visibles montículos, terrazas y fosos que en plano no se notan.</div>
+        <button class="btn" id="open3D">⛰ Abrir terreno en 3D</button>
+      </div>
+
+      <div class="sect" id="dossierSect2" style="display:none">
+        <div class="sect-t">Dossier de investigación</div>
+        <div class="note" style="margin-top:0">Genera un informe descargable (HTML imprimible a PDF) con el punto, contexto histórico, hallazgos OSM, links y notas.</div>
+        <textarea id="notes" placeholder="Tus notas sobre este punto…" style="width:100%;margin-top:8px;background:#0a0c07;border:1px solid var(--line);color:var(--pale);font-family:inherit;font-size:10px;padding:8px;min-height:60px;resize:vertical"></textarea>
+        <button class="btn" id="makeDossier">📑 Generar dossier</button>
+      </div>
+    </div>
+    <div class="sig">
+      <div class="pb">Powered by</div>
+      <div class="name">Max Sarlija</div>
+    </div>
+  </div>
+
+</div>
+
+<script async src="https://docs.opencv.org/4.10.0/opencv.js" onload="onCvReady()"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============ MAP ============ */
+const map=L.map('map',{zoomControl:true,attributionControl:false}).setView([-32.89,-69.05],6);
+const bases={
+  sat:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,crossOrigin:true}),
+  topo:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,crossOrigin:true}),
+  terr:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:13,crossOrigin:true})
+};
+bases.sat.addTo(map);
+const layerDefs=[{id:'sat',n:'Satélite'},{id:'topo',n:'Topográfico'},{id:'terr',n:'Terreno'}];
+const layEl=document.getElementById('layers');
+layerDefs.forEach((l,i)=>{const b=document.createElement('button');b.className='tool';b.innerHTML=`<span class="ti">${i===0?'●':'○'}</span><div>${l.n}</div>`;
+  b.onclick=()=>{Object.values(bases).forEach(x=>map.removeLayer(x));bases[l.id].addTo(map);layEl.querySelectorAll('.ti').forEach(t=>t.textContent='○');b.querySelector('.ti').textContent='●';};layEl.appendChild(b);});
+
+/* precargadas — mundo */
+const targets=[
+  {name:'Uspallata · Camino Inca',t:'arq',lat:-32.59,lon:-69.34,z:13},
+  {name:'Paramillos · minas coloniales',t:'min',lat:-32.50,lon:-69.13,z:14},
+  {name:'San Juan · litio/cobre',t:'min',lat:-31.20,lon:-69.30,z:10},
+  {name:'Bahamas · banco poco profundo',t:'nau',lat:24.05,lon:-77.40,z:11},
+  {name:'Egipto · Abydos',t:'arq',lat:26.18,lon:31.91,z:14},
+  {name:'Nazca · líneas',t:'arq',lat:-14.74,lon:-75.13,z:13},
+  {name:'Mar Rojo · arrecifes',t:'nau',lat:27.30,lon:33.95,z:12},
+  {name:'Atacama · salares litio',t:'min',lat:-23.50,lon:-68.20,z:10}
+];
+const tEl=document.getElementById('targets');
+targets.forEach(t=>{const lbl={arq:'ARQ',min:'MIN',agua:'AGUA',nau:'NAUF'}[t.t];
+  const d=document.createElement('div');d.className='target';
+  d.innerHTML=`<div class="tn">${t.name}<span class="tag ${t.t}">${lbl}</span></div>`;
+  d.onclick=()=>{map.flyTo([t.lat,t.lon],t.z,{duration:1.2});setTimeout(()=>analyze(t.lat,t.lon),600);};
+  tEl.appendChild(d);
+  const col={arq:'#cfa75f',min:'#6f9a54',agua:'#4a86a8',nau:'#bb5a2e'}[t.t];
+  L.circleMarker([t.lat,t.lon],{radius:6,color:col,fillColor:col,fillOpacity:.4,weight:2}).addTo(map);
+});
+
+let marker=null,measuring=false;
+map.on('click',e=>{if(!measuring)analyze(e.latlng.lat,e.latlng.lng);});
+
+let ht;function hud(t){const h=document.getElementById('hud');h.textContent=t;clearTimeout(ht);ht=setTimeout(()=>h.textContent='Tocá cualquier punto del mundo para analizarlo',3000);}
+
+/* search (Nominatim, gratis) */
+document.getElementById('searchBtn').onclick=doSearch;
+document.getElementById('search').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+async function doSearch(){
+  const q=document.getElementById('search').value.trim();if(!q)return;hud('Buscando…');
+  try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+    const d=await r.json();if(d[0]){map.flyTo([+d[0].lat,+d[0].lon],12,{duration:1.2});setTimeout(()=>analyze(+d[0].lat,+d[0].lon),700);}
+    else hud('No encontrado');}catch(e){hud('Error de búsqueda');}
+}
+
+/* ============ INTELLIGENCE PANEL ============ */
+let curLat,curLon,curWiki=[],curOSM=[],curExplored=false;
+async function analyze(lat,lon){
+  curLat=lat;curLon=lon;curWiki=[];curOSM=[];
+  if(marker)map.removeLayer(marker);
+  marker=L.marker([lat,lon]).addTo(map);
+  document.getElementById('toolsSect').style.display='block';
+  document.getElementById('changeSect').style.display='block';
+  document.getElementById('claudeSect').style.display='block';
+  document.getElementById('dossierSect').style.display='block';
+  document.getElementById('dossierSect2').style.display='block';
+  const intel=document.getElementById('intel');
+  const cs=`${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  intel.innerHTML=`<div class="ipoint"><h3>Punto seleccionado</h3><div class="coord">${cs}</div>
+    <div class="loading-i">⟳ Reuniendo inteligencia…</div></div>`;
+  hud('Analizando '+cs);
+
+  // research links (siempre funcionan, sin key)
+  const q=encodeURIComponent(`${lat.toFixed(3)} ${lon.toFixed(3)}`);
+  const links=`<div class="ilinks">
+    <a class="ilink" target="_blank" href="https://www.google.com/search?q=${q}+history+archaeology">🔎 Historia</a>
+    <a class="ilink" target="_blank" href="https://www.youtube.com/results?search_query=${q}+exploration">▶ Videos</a>
+    <a class="ilink" target="_blank" href="https://scholar.google.com/scholar?q=${q}">📄 Papers</a>
+    <a class="ilink" target="_blank" href="https://browser.dataspace.copernicus.eu/?lat=${lat.toFixed(4)}&lng=${lon.toFixed(4)}&zoom=14">🛰 Sentinel</a>
+  </div>`;
+
+  let html=`<div class="ipoint"><h3>Punto seleccionado</h3><div class="coord">${cs}</div>
+    <div class="depthbox" id="depthBox" style="display:none"></div>`;
+
+  // Wikipedia GeoSearch (CORS con origin=*)
+  let wiki=[],explored=false;
+  try{
+    const wr=await fetch(`https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lon}&gsradius=10000&gslimit=6&format=json&origin=*`);
+    const wd=await wr.json();
+    wiki=(wd.query&&wd.query.geosearch)||[];
+    if(wiki.length===0){
+      const wr2=await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lon}&gsradius=20000&gslimit=6&format=json&origin=*`);
+      const wd2=await wr2.json();wiki=(wd2.query&&wd2.query.geosearch)||[];
+      wiki.forEach(w=>w._en=true);
+    }
+  }catch(e){}
+  explored=wiki.length>0;
+  curWiki=wiki;curExplored=explored;
+
+  // badges de exploración
+  html+=`<div style="margin-bottom:8px">`;
+  if(explored){html+=`<span class="ibadge explored">● ZONA CON REGISTROS (${wiki.length})</span>`;}
+  else{html+=`<span class="ibadge unexplored">● SIN REGISTROS CERCANOS</span>`;}
+  html+=`</div>`;
+
+  // contexto / qué hay
+  html+=`<div style="font-size:9px;color:var(--sand);letter-spacing:1px;margin:6px 0 4px;text-transform:uppercase">Qué hay / puede haber</div>`;
+  if(explored){
+    wiki.slice(0,5).forEach(w=>{
+      const wlang=w._en?'en':'es';
+      const dist=(w.dist/1000).toFixed(1);
+      html+=`<div class="iitem"><a target="_blank" href="https://${wlang}.wikipedia.org/?curid=${w.pageid}">${w.title}</a><div class="meta">a ${dist} km · Wikipedia</div></div>`;
+    });
+  }else{
+    html+=`<div class="iitem">Sin artículos cercanos. Esto puede significar zona poco documentada o genuinamente inexplorada — interesante para mirar con detalle satelital.</div>`;
+  }
+
+  html+=links;
+
+  // costo / explotación (texto guía honesto)
+  html+=`<div style="font-size:9px;color:var(--rust);letter-spacing:1px;margin:12px 0 4px;text-transform:uppercase">Costo y explotación</div>
+    <div class="icost">Análisis satelital: gratis (Sentinel/Copernicus). Imagen de alta resolución (25-30cm) bajo demanda: cientos a miles de USD por escena (Maxar/Planet). Verificación en terreno (sonar, dron, excavación) requiere permisos del país y suele ser el mayor costo. Hallazgos arqueológicos/submarinos pertenecen al Estado en casi todo el mundo — explorar es legal, extraer normalmente no sin licencia.</div>`;
+
+  html+=`</div>`;
+
+  // fotos: contenedor que se llena async
+  html+=`<div class="ipoint" id="photoBox"><div style="font-size:9px;color:var(--sand);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">Fotos reales cercanas</div><div class="loading-i">⟳ Buscando fotos geolocalizadas…</div></div>`;
+
+  // OSM catalogado: contenedor async
+  html+=`<div class="ipoint" id="osmBox"><div style="font-size:9px;color:var(--sand);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">Ya catalogado (OpenStreetMap)</div><div class="loading-i">⟳ Consultando ruinas, minas, sitios…</div></div>`;
+
+  intel.innerHTML=html;
+  loadPhotos(lat,lon);
+  loadOSM(lat,lon);
+  showDepth(lat,lon);
+}
+
+/* Wikimedia Commons geosearch — fotos reales sin key */
+async function loadPhotos(lat,lon){
+  const box=document.getElementById('photoBox');if(!box)return;
+  try{
+    const r=await fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=geosearch&ggscoord=${lat}%7C${lon}&ggsradius=10000&ggslimit=8&ggsnamespace=6&prop=imageinfo&iiprop=url&iiurlwidth=300`);
+    const d=await r.json();
+    const pages=d.query&&d.query.pages?Object.values(d.query.pages):[];
+    const imgs=pages.filter(p=>p.imageinfo&&p.imageinfo[0]&&/\.(jpe?g|png)$/i.test(p.imageinfo[0].url)).slice(0,4);
+    let h=`<div style="font-size:9px;color:var(--sand);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">Fotos reales cercanas</div>`;
+    if(imgs.length){
+      imgs.forEach(p=>{const ii=p.imageinfo[0];h+=`<a target="_blank" href="${ii.descriptionurl||ii.url}"><img class="iphoto" src="${ii.thumburl||ii.url}" loading="lazy"></a>`;});
+      h+=`<div class="meta" style="font-size:8px;color:var(--dim)">Wikimedia Commons · subidas por usuarios cerca de este punto</div>`;
+    }else{
+      h+=`<div class="iitem">Sin fotos geolocalizadas en Wikimedia a 10 km. Zona sin cobertura fotográfica pública = posiblemente poco visitada.</div>`;
+    }
+    box.innerHTML=h;
+  }catch(e){box.innerHTML=`<div class="iitem">No se pudieron cargar fotos (red).</div>`;}
+}
+
+/* ============ TIMELINE (Sentinel multi-fecha) ============ */
+const years=['2019','2020','2021','2022','2023','2024','2025'];
+let tlLayer=null;
+document.getElementById('toggleTL').onclick=()=>{
+  const tl=document.getElementById('timeline');tl.classList.toggle('on');
+  document.getElementById('toggleTL').textContent=tl.classList.contains('on')?'Ocultar línea de tiempo':'Activar línea de tiempo Sentinel';
+  if(tl.classList.contains('on'))updateTL(6);else if(tlLayer){map.removeLayer(tlLayer);tlLayer=null;}
+};
+document.getElementById('tlSlider').oninput=e=>updateTL(+e.target.value);
+function updateTL(i){
+  const y=years[i];document.getElementById('tlYear').textContent=y;
+  document.getElementById('tlDate').textContent='Sentinel-2 · '+y+' (mosaico anual)';
+  if(tlLayer)map.removeLayer(tlLayer);
+  // EOX Sentinel-2 cloudless mosaics (gratis, sin key) por año
+  tlLayer=L.tileLayer(`https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-${y}_3857/default/g/{z}/{y}/{x}.jpg`,{maxZoom:14,opacity:.95,crossOrigin:true});
+  tlLayer.addTo(map);
+}
+
+/* ============ OpenCV + TF ============ */
+let cvReady=false,model=null;
+function onCvReady(){if(window.cv&&cv.getBuildInformation)flagCv();else cv['onRuntimeInitialized']=flagCv;}
+function flagCv(){cvReady=true;document.getElementById('pcv').textContent='✓ visión';document.getElementById('pcv').className='pill ok';}
+async function loadModel(){if(model)return model;hud('Cargando modelo IA…');model=await cocoSsd.load();return model;}
+
+/* ============ IMAGE PIPELINE ============ */
+const canvas=document.getElementById('cv-canvas');
+const ctx=canvas.getContext('2d',{willReadFrequently:true});
+let baseImg=null;
+function loadImageFromSrc(src){
+  const img=new Image();img.crossOrigin='anonymous';
+  img.onload=()=>{let w=img.width,h=img.height;const mx=1300;if(w>mx){h=Math.round(h*mx/w);w=mx;}
+    canvas.width=w;canvas.height=h;ctx.drawImage(img,0,0,w,h);baseImg=ctx.getImageData(0,0,w,h);
+    document.querySelectorAll('.tool[data-op],#reset,#dl').forEach(b=>b.disabled=false);
+    document.getElementById('stage').classList.add('on');};
+  img.onerror=()=>hud('No se pudo cargar la imagen');img.src=src;
+}
+function restore(){if(baseImg)ctx.putImageData(baseImg,0,0);}
+function busy(on){document.getElementById('busy').classList.toggle('on',on);}
+
+document.getElementById('grabMap').onclick=()=>{
+  const tiles=document.querySelectorAll('#map img.leaflet-tile-loaded');
+  if(!tiles.length){hud('Esperá a que cargue el mapa');return;}
+  hud('Capturando…');const size=map.getSize();
+  const c=document.createElement('canvas');c.width=size.x;c.height=size.y;const cx=c.getContext('2d');
+  cx.fillStyle='#0a0c07';cx.fillRect(0,0,c.width,c.height);
+  const mr=document.getElementById('map').getBoundingClientRect();let done=0,ok=0;const total=tiles.length;
+  const fin=()=>{if(done<total)return;if(!ok){hud('CORS bloqueó la captura. Probá otra capa.');return;}
+    try{loadImageFromSrc(c.toDataURL('image/png'));}catch(e){hud('Canvas bloqueado por CORS.');}};
+  tiles.forEach(t=>{const r=t.getBoundingClientRect();const x=r.left-mr.left,y=r.top-mr.top,w=t.width||256,h=t.height||256;
+    const im=new Image();im.crossOrigin='anonymous';
+    im.onload=()=>{try{cx.drawImage(im,x,y,w,h);ok++;}catch(e){}done++;fin();};
+    im.onerror=()=>{done++;fin();};im.src=t.src+(t.src.includes('?')?'&':'?')+'cors=1';});
+};
+
+document.getElementById('closeStage').onclick=()=>document.getElementById('stage').classList.remove('on');
+const thr=document.getElementById('thr');thr.oninput=()=>vthr.textContent=thr.value;
+document.getElementById('reset').onclick=restore;
+document.getElementById('dl').onclick=()=>{const a=document.createElement('a');a.download='oraculo-analisis.png';a.href=canvas.toDataURL();a.click();};
+
+document.querySelectorAll('.tool[data-op]').forEach(b=>{
+  b.onclick=async()=>{
+    if(b.dataset.op==='detect'){busy(true);try{await runDetect();}catch(e){hud('Error IA: '+e.message);}busy(false);return;}
+    if(!cvReady){hud('El motor de visión aún carga');return;}
+    busy(true);setTimeout(()=>{try{run(b.dataset.op);}catch(e){hud('Error: '+e.message);}busy(false);},40);
+  };
+});
+
+async function runDetect(){
+  restore();await loadModel();
+  const preds=await model.detect(canvas);
+  preds.forEach(p=>{const[x,y,w,h]=p.bbox;ctx.strokeStyle='#cfa75f';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='rgba(187,90,46,.85)';ctx.font='13px monospace';const txt=`${p.class} ${(p.score*100|0)}%`;
+    const tw=ctx.measureText(txt).width;ctx.fillRect(x,y-16,tw+8,16);ctx.fillStyle='#fff';ctx.fillText(txt,x+4,y-4);});
+  hud(preds.length?`IA detectó ${preds.length} objeto(s)`:'IA no detectó objetos catalogados (esperable en satélite — el modelo es genérico)');
+}
+
+function run(op){
+  restore();let src=cv.imread(canvas),dst=new cv.Mat();
+  if(op==='contrast'){let lab=new cv.Mat();cv.cvtColor(src,lab,cv.COLOR_RGBA2RGB);cv.cvtColor(lab,lab,cv.COLOR_RGB2Lab);
+    let ch=new cv.MatVector();cv.split(lab,ch);let cl=new cv.CLAHE(3,new cv.Size(8,8));cl.apply(ch.get(0),ch.get(0));
+    cv.merge(ch,lab);cv.cvtColor(lab,dst,cv.COLOR_Lab2RGB);cv.cvtColor(dst,dst,cv.COLOR_RGB2RGBA);lab.delete();ch.delete();cl.delete();hud('Auto-contraste');}
+  else if(op==='false'){let g=new cv.Mat();cv.cvtColor(src,g,cv.COLOR_RGBA2GRAY);cv.applyColorMap(g,dst,cv.COLORMAP_JET);cv.cvtColor(dst,dst,cv.COLOR_BGR2RGBA);g.delete();hud('Falso color');}
+  else if(op==='water'){let ch=new cv.MatVector();cv.split(src,ch);let R=new cv.Mat(),G=new cv.Mat();
+    ch.get(0).convertTo(R,cv.CV_32F);ch.get(1).convertTo(G,cv.CV_32F);let n=new cv.Mat(),dn=new cv.Mat(),idx=new cv.Mat();
+    cv.subtract(G,R,n);cv.add(G,R,dn);cv.add(dn,new cv.Mat(dn.rows,dn.cols,dn.type(),new cv.Scalar(1)),dn);
+    cv.divide(n,dn,idx);cv.normalize(idx,idx,0,255,cv.NORM_MINMAX);idx.convertTo(idx,cv.CV_8U);
+    cv.applyColorMap(idx,dst,cv.COLORMAP_OCEAN);cv.cvtColor(dst,dst,cv.COLOR_BGR2RGBA);
+    ch.delete();R.delete();G.delete();n.delete();dn.delete();idx.delete();hud('Realce de agua');}
+  else if(op==='edges'){let g=new cv.Mat();cv.cvtColor(src,g,cv.COLOR_RGBA2GRAY);cv.GaussianBlur(g,g,new cv.Size(3,3),0);
+    let e=new cv.Mat();const t=+thr.value;cv.Canny(g,e,t,t*2);cv.cvtColor(e,dst,cv.COLOR_GRAY2RGBA);g.delete();e.delete();hud('Bordes (Canny)');}
+  else if(op==='lines'){let g=new cv.Mat();cv.cvtColor(src,g,cv.COLOR_RGBA2GRAY);let e=new cv.Mat();const t=+thr.value;
+    cv.Canny(g,e,t,t*2);let ln=new cv.Mat();cv.HoughLinesP(e,ln,1,Math.PI/180,50,40,10);src.copyTo(dst);
+    for(let i=0;i<ln.rows;i++){let a=ln.data32S[i*4],b=ln.data32S[i*4+1],c=ln.data32S[i*4+2],d2=ln.data32S[i*4+3];
+      cv.line(dst,new cv.Point(a,b),new cv.Point(c,d2),new cv.Scalar(255,90,46,255),2);}g.delete();e.delete();ln.delete();hud('Líneas rectas');}
+  else if(op==='anomaly'){let g=new cv.Mat();cv.cvtColor(src,g,cv.COLOR_RGBA2GRAY);let bl=new cv.Mat();
+    cv.GaussianBlur(g,bl,new cv.Size(0,0),15);let df=new cv.Mat();cv.absdiff(g,bl,df);cv.normalize(df,df,0,255,cv.NORM_MINMAX);
+    cv.convertScaleAbs(df,df,1.5,0);cv.applyColorMap(df,dst,cv.COLORMAP_INFERNO);cv.cvtColor(dst,dst,cv.COLOR_BGR2RGBA);
+    g.delete();bl.delete();df.delete();hud('Mapa de anomalías');}
+  cv.imshow(canvas,dst);src.delete();dst.delete();
+}
+
+/* ============ OVERPASS (OSM) — qué ya está catalogado ============ */
+async function loadOSM(lat,lon){
+  const box=document.getElementById('osmBox');if(!box)return;
+  const r=2000; // metros
+  const q=`[out:json][timeout:18];(
+    node["historic"](around:${r},${lat},${lon});
+    way["historic"](around:${r},${lat},${lon});
+    node["man_made"="mineshaft"](around:${r},${lat},${lon});
+    way["landuse"="quarry"](around:${r},${lat},${lon});
+    node["archaeological_site"](around:${r},${lat},${lon});
+    node["historic"="wreck"](around:${r},${lat},${lon});
+    way["historic"="archaeological_site"](around:${r},${lat},${lon});
+  );out center 12;`;
+  try{
+    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q)});
+    const d=await res.json();
+    const els=(d.elements||[]).filter(e=>e.tags);
+    curOSM=els;
+    let h=`<div style="font-size:9px;color:var(--sand);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">Ya catalogado (OpenStreetMap)</div>`;
+    if(els.length){
+      els.slice(0,8).forEach(e=>{
+        const t=e.tags;const name=t.name||t.historic||t.archaeological_site||t.landuse||t.man_made||'sitio sin nombre';
+        const type=t.historic||t.archaeological_site||t.landuse||t.man_made||'histórico';
+        h+=`<div class="iitem">${name}<div class="meta">${type} · OSM</div></div>`;
+      });
+      h+=`<div class="meta" style="font-size:8px;color:var(--dim);margin-top:6px">${els.length} elemento(s) en 2 km — zona ya documentada</div>`;
+    }else{
+      h+=`<div class="iitem">Nada catalogado en OSM a 2 km. Ni ruinas, ni minas, ni naufragios registrados. Zona virgen de datos — la más interesante para explorar.</div>`;
+    }
+    box.innerHTML=h;
+  }catch(e){box.innerHTML=`<div style="font-size:9px;color:var(--sand);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">Ya catalogado (OpenStreetMap)</div><div class="iitem">Overpass ocupado o sin respuesta. Reintentá en unos segundos.</div>`;}
+}
+
+/* ============ DETECCIÓN DE CAMBIOS (dos fechas Sentinel) ============ */
+const yearA=document.getElementById('yearA'),yearB=document.getElementById('yearB');
+yearA.oninput=()=>vya.textContent=years[+yearA.value];
+yearB.oninput=()=>vyb.textContent=years[+yearB.value];
+
+function tileURL(year,z,x,y){return `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-${year}_3857/default/g/${z}/${y}/${x}.jpg`;}
+
+document.getElementById('runChange').onclick=async()=>{
+  const z=Math.min(map.getZoom(),13);
+  const c=map.getCenter();
+  // convertir centro a tile x/y
+  const n=Math.pow(2,z);
+  const xt=Math.floor((c.lng+180)/360*n);
+  const latR=c.lat*Math.PI/180;
+  const yt=Math.floor((1-Math.log(Math.tan(latR)+1/Math.cos(latR))/Math.PI)/2*n);
+  const yA=years[+yearA.value],yB=years[+yearB.value];
+  hud(`Comparando ${yA} vs ${yB}…`);
+  document.getElementById('stage').classList.add('on');busy(true);
+  try{
+    const[imgA,imgB]=await Promise.all([loadCORS(tileURL(yA,z,xt,yt)),loadCORS(tileURL(yB,z,xt,yt))]);
+    const w=512,h=512;canvas.width=w;canvas.height=h;
+    const ca=document.createElement('canvas');ca.width=w;ca.height=h;ca.getContext('2d').drawImage(imgA,0,0,w,h);
+    const cb=document.createElement('canvas');cb.width=w;cb.height=h;cb.getContext('2d').drawImage(imgB,0,0,w,h);
+    const da=ca.getContext('2d').getImageData(0,0,w,h),db=cb.getContext('2d').getImageData(0,0,w,h);
+    const out=ctx.createImageData(w,h);
+    // 1) mapa de diferencia por pixel
+    const diffMap=new Float32Array(w*h);
+    for(let p=0,i=0;p<w*h;p++,i+=4){
+      diffMap[p]=Math.abs(da.data[i]-db.data[i])+Math.abs(da.data[i+1]-db.data[i+1])+Math.abs(da.data[i+2]-db.data[i+2]);
+    }
+    // 2) agrupar en bloques 8x8; un bloque "cambió" solo si la mayoría de sus pixeles cambió fuerte (filtra ruido disperso de vegetación)
+    const B=8;const changed=new Uint8Array(Math.ceil(w/B)*Math.ceil(h/B));const bw=Math.ceil(w/B);
+    for(let by=0;by<h;by+=B)for(let bx=0;bx<w;bx+=B){
+      let cnt=0,tot=0;
+      for(let yy=by;yy<Math.min(by+B,h);yy++)for(let xx=bx;xx<Math.min(bx+B,w);xx++){tot++;if(diffMap[yy*w+xx]>100)cnt++;}
+      if(cnt/tot>0.6)changed[(by/B|0)*bw+(bx/B|0)]=1;
+    }
+    // 3) pintar: fondo gris del año B, bloques compactos cambiados en rojo
+    for(let p=0,i=0;p<w*h;p++,i+=4){
+      const x=p%w,y=(p/w)|0;
+      const base=(db.data[i]+db.data[i+1]+db.data[i+2])/3*.5;
+      if(changed[((y/B|0)*bw)+(x/B|0)]){out.data[i]=255;out.data[i+1]=60;out.data[i+2]=30;}
+      else{out.data[i]=base;out.data[i+1]=base;out.data[i+2]=base;}
+      out.data[i+3]=255;
+    }
+    ctx.putImageData(out,0,0);baseImg=ctx.getImageData(0,0,w,h);
+    document.querySelectorAll('.tool[data-op],#reset,#dl').forEach(b=>b.disabled=false);
+    hud(`Rojo = cambió entre ${yA} y ${yB}. Gris = permanente (candidato).`);
+  }catch(e){hud('No se pudo cargar una de las fechas (zona sin mosaico ese año).');}
+  busy(false);
+};
+function loadCORS(url){return new Promise((res,rej)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=rej;im.src=url;});}
+
+/* ============ SEGUNDA OPINIÓN DE CLAUDE ============ */
+document.getElementById('askClaude').onclick=async()=>{
+  const out=document.getElementById('claudeOut');
+  if(!baseImg){out.innerHTML='Primero capturá o analizá una imagen.';return;}
+  out.innerHTML='<span class="loading-i">🔮 Claude está observando la imagen…</span>';
+  const dataURL=canvas.toDataURL('image/jpeg',0.8);
+  const b64=dataURL.split(',')[1];
+  const loc=`${curLat?curLat.toFixed(4):'?'}, ${curLon?curLon.toFixed(4):'?'}`;
+  try{
+    const headers={"Content-Type":"application/json"};
+    if(userApiKey){headers["x-api-key"]=userApiKey;headers["anthropic-version"]="2023-06-01";headers["anthropic-dangerous-direct-browser-access"]="true";}
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:headers,
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",max_tokens:1000,
+        messages:[{role:"user",content:[
+          {type:"image",source:{type:"base64",media_type:"image/jpeg",data:b64}},
+          {type:"text",text:`Esta es una imagen satelital de la zona ${loc}. Analizala como experto en teledetección y arqueología/exploración. Identificá: 1) anomalías o patrones que destaquen, 2) posibles estructuras artificiales (líneas rectas, geometría), 3) qué valdría la pena investigar más. Sé concreto y honesto sobre la incertidumbre. Responde en español, breve y directo, en viñetas.`}
+        ]}]
+      })
+    });
+    const data=await resp.json();
+    const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    out.innerHTML=txt?txt.replace(/\n/g,'<br>'):'Claude no devolvió texto.';
+  }catch(e){
+    out.innerHTML='⚠ La interpretación de Claude solo funciona ejecutando este artefacto dentro de Claude.ai. Si descargaste el HTML y lo abriste suelto, esta función no tiene acceso a la API (el resto sí funciona).';
+  }
+};
+
+/* ============ MEDICIÓN ============ */
+let mPts=[],mLayer=L.layerGroup().addTo(map);
+document.getElementById('measureBtn').onclick=function(){
+  measuring=!measuring;this.classList.toggle('on',measuring);
+  const info=document.getElementById('measureInfo');
+  if(measuring){info.classList.add('on');info.textContent='Clic para marcar puntos · el área se calcula con 3+';mPts=[];mLayer.clearLayers();}
+  else{info.classList.remove('on');mLayer.clearLayers();mPts=[];}
+};
+map.on('click',e=>{
+  if(!measuring)return;
+  mPts.push(e.latlng);mLayer.clearLayers();
+  L.polyline(mPts,{color:'#cfa75f',weight:2,dashArray:'4'}).addTo(mLayer);
+  mPts.forEach(p=>L.circleMarker(p,{radius:3,color:'#bb5a2e',fillOpacity:1}).addTo(mLayer));
+  let dist=0;for(let i=1;i<mPts.length;i++)dist+=mPts[i-1].distanceTo(mPts[i]);
+  let txt=`Distancia: ${dist>1000?(dist/1000).toFixed(2)+' km':dist.toFixed(0)+' m'}`;
+  if(mPts.length>=3){const area=polyArea(mPts);txt+=` · Área: ${area>1e6?(area/1e6).toFixed(2)+' km²':area.toFixed(0)+' m²'}`;}
+  document.getElementById('measureInfo').textContent=txt;
+});
+function polyArea(pts){const R=6378137;let a=0;for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length;
+  const x1=pts[i].lng*Math.PI/180*R*Math.cos(pts[i].lat*Math.PI/180),y1=pts[i].lat*Math.PI/180*R;
+  const x2=pts[j].lng*Math.PI/180*R*Math.cos(pts[j].lat*Math.PI/180),y2=pts[j].lat*Math.PI/180*R;
+  a+=x1*y2-x2*y1;}return Math.abs(a/2);}
+
+/* ============ COMPARADOR CON CORTINA ============ */
+let curtainOn=false,layerA=null,layerB=null;
+document.getElementById('curtainBtn').onclick=function(){
+  curtainOn=!curtainOn;this.classList.toggle('on',curtainOn);
+  const c=document.getElementById('curtain');
+  if(curtainOn){
+    const yA=years[+document.getElementById('yearA').value]||'2019';
+    const yB=years[+document.getElementById('yearB').value]||'2025';
+    if(layerB)map.removeLayer(layerB);if(layerA)map.removeLayer(layerA);
+    layerB=L.tileLayer(`https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-${yB}_3857/default/g/{z}/{y}/{x}.jpg`,{maxZoom:14,crossOrigin:true}).addTo(map);
+    layerA=L.tileLayer(`https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-${yA}_3857/default/g/{z}/{y}/{x}.jpg`,{maxZoom:14,crossOrigin:true}).addTo(map);
+    document.getElementById('curLblA').textContent=yA;document.getElementById('curLblB').textContent=yB;
+    c.classList.add('on');clipLayer();map.on('move zoom',clipLayer);
+    hud(`Cortina: ${yA} (izq) vs ${yB} (der). Arrastrá el círculo.`);
+  }else{
+    c.classList.remove('on');map.off('move zoom',clipLayer);
+    if(layerA){map.removeLayer(layerA);layerA=null;}if(layerB){map.removeLayer(layerB);layerB=null;}
+  }
+};
+function clipLayer(){if(!layerA||!layerA.getContainer())return;
+  const pct=parseFloat(document.getElementById('curtainClip').style.width)||50;
+  layerA.getContainer().style.clipPath=`inset(0 ${100-pct}% 0 0)`;}
+(function(){const h=document.getElementById('curtainHandle'),clip=document.getElementById('curtainClip');let drag=false;
+  const move=x=>{const r=document.getElementById('map').getBoundingClientRect();let p=(x-r.left)/r.width*100;p=Math.max(5,Math.min(95,p));
+    h.style.left=p+'%';clip.style.width=p+'%';clipLayer();};
+  h.addEventListener('mousedown',()=>drag=true);document.addEventListener('mouseup',()=>drag=false);
+  document.addEventListener('mousemove',e=>{if(drag)move(e.clientX);});
+  h.addEventListener('touchmove',e=>move(e.touches[0].clientX));})();
+
+/* ============ DOSSIER (HTML imprimible a PDF) ============ */
+document.getElementById('makeDossier').onclick=()=>{
+  if(curLat===undefined){hud('Seleccioná un punto primero');return;}
+  const cs=`${curLat.toFixed(4)}, ${curLon.toFixed(4)}`;
+  const notes=(document.getElementById('notes').value||'(sin notas)').replace(/</g,'&lt;').replace(/\n/g,'<br>');
+  const wikiList=curWiki.length?curWiki.slice(0,6).map(w=>`<li>${w.title} — a ${(w.dist/1000).toFixed(1)} km</li>`).join(''):'<li>Sin registros Wikipedia cercanos</li>';
+  const osmList=curOSM.length?curOSM.slice(0,8).map(e=>{const t=e.tags;return `<li>${t.name||t.historic||t.archaeological_site||'sitio'} (${t.historic||t.man_made||t.landuse||'histórico'})</li>`;}).join(''):'<li>Nada catalogado en OSM a 2 km — zona sin datos</li>';
+  const img=baseImg?canvas.toDataURL('image/jpeg',0.7):'';
+  const q=encodeURIComponent(`${curLat.toFixed(3)} ${curLon.toFixed(3)}`);
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Dossier ${cs}</title>
+<style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto;padding:0 30px;color:#1a1a1a;line-height:1.6}
+h1{font-size:24px;border-bottom:3px solid #bb5a2e;padding-bottom:8px}h2{font-size:15px;color:#bb5a2e;margin-top:26px;text-transform:uppercase;letter-spacing:1px}
+.coord{color:#888;font-family:monospace}img{max-width:100%;border:1px solid #ccc;margin:10px 0}
+ul{margin:6px 0}li{margin:3px 0}.cost{border-left:3px solid #bb5a2e;padding-left:12px;color:#555;font-size:14px}
+.sig{margin-top:50px;text-align:center;color:#aaa;font-size:12px}.sig b{font-family:'Brush Script MT',cursive;font-size:24px;color:#bb5a2e}
+.badge{display:inline-block;padding:3px 10px;font-size:12px;color:#fff;background:${curExplored?'#4a86a8':'#bb5a2e'}}
+@media print{body{margin:0}}</style></head><body>
+<h1>Dossier de Investigación Satelital</h1>
+<p class="coord">Coordenadas: ${cs} · ${new Date().toLocaleString('es')}</p>
+<p><span class="badge">${curExplored?'ZONA CON REGISTROS':'ZONA SIN REGISTROS'}</span></p>
+${img?`<h2>Imagen analizada</h2><img src="${img}">`:''}
+<h2>Qué hay / puede haber</h2><ul>${wikiList}</ul>
+<h2>Ya catalogado (OSM)</h2><ul>${osmList}</ul>
+<h2>Notas del investigador</h2><p>${notes}</p>
+<h2>Links</h2><ul><li>Historia: google.com/search?q=${q}+history+archaeology</li>
+<li>Sentinel: browser.dataspace.copernicus.eu (${curLat.toFixed(4)}, ${curLon.toFixed(4)})</li></ul>
+<h2>Costo y explotación</h2>
+<p class="cost">Análisis satelital gratis (Sentinel). Alta resolución bajo demanda: cientos-miles USD/escena. Verificación en terreno requiere permisos del país. Hallazgos arqueológicos/submarinos suelen pertenecer al Estado: explorar es legal, extraer normalmente no sin licencia.</p>
+<div class="sig">Powered by <b>Max Sarlija</b><br>ORÁCULO SAT</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>
+</body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}else hud('Permití ventanas emergentes para el dossier');
+};
+
+/* ============ TERRENO 3D (three.js + DEM Terrarium) ============ */
+let threeState=null;
+document.getElementById('exag').oninput=e=>{
+  document.getElementById('vexag').textContent=(e.target.value/10).toFixed(1);
+  if(threeState&&threeState.mesh){threeState.mesh.scale.z=e.target.value/10*threeState.baseZ;threeState.render();}
+};
+document.getElementById('close3D').onclick=()=>{
+  document.getElementById('view3d').classList.remove('on');
+  if(threeState&&threeState.stop)threeState.stop();
+};
+document.getElementById('open3D').onclick=async()=>{
+  const v=document.getElementById('view3d');v.classList.add('on');
+  document.getElementById('three-busy').style.display='flex';
+  try{ await build3D(); }
+  catch(e){ hud('No se pudo construir el 3D: '+e.message); document.getElementById('three-busy').innerHTML='<div style="color:var(--rust);font-size:12px">No se pudo cargar el terreno.<br>'+e.message+'</div>'; }
+};
+
+function loadImg(url){return new Promise((res,rej)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>res(im);im.onerror=()=>rej(new Error('tile'));im.src=url;});}
+
+async function build3D(){
+  const z=Math.min(Math.max(map.getZoom(),10),13);
+  const c=map.getCenter();
+  const n=Math.pow(2,z);
+  const cx=Math.floor((c.lng+180)/360*n);
+  const latR=c.lat*Math.PI/180;
+  const cy=Math.floor((1-Math.log(Math.tan(latR)+1/Math.cos(latR))/Math.PI)/2*n);
+  // grilla 2x2 de tiles alrededor del centro
+  const TS=256, GRID=2, span=GRID*TS;
+  const demCanvas=document.createElement('canvas');demCanvas.width=span;demCanvas.height=span;
+  const texCanvas=document.createElement('canvas');texCanvas.width=span;texCanvas.height=span;
+  const dctx=demCanvas.getContext('2d'),tctx=texCanvas.getContext('2d');
+  const jobs=[];
+  for(let dx=0;dx<GRID;dx++)for(let dy=0;dy<GRID;dy++){
+    const tx=cx+dx, ty=cy+dy, px=dx*TS, py=dy*TS;
+    // DEM Terrarium (AWS, gratis sin key)
+    jobs.push(loadImg(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${tx}/${ty}.png`)
+      .then(im=>dctx.drawImage(im,px,py)).catch(()=>{}));
+    // textura satelital (Esri)
+    jobs.push(loadImg(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${ty}/${tx}?cors=1`)
+      .then(im=>tctx.drawImage(im,px,py)).catch(()=>{}));
+  }
+  await Promise.all(jobs);
+
+  // decodificar elevación: h = (R*256 + G + B/256) - 32768
+  const dem=dctx.getImageData(0,0,span,span).data;
+  const SEG=120; // resolución de malla
+  const geo=new THREE.PlaneGeometry(200,200,SEG,SEG);
+  const pos=geo.attributes.position;
+  let hmin=1e9,hmax=-1e9;const hs=[];
+  for(let i=0;i<pos.count;i++){
+    const u=(i%(SEG+1))/SEG, vv=Math.floor(i/(SEG+1))/SEG;
+    const sx=Math.min(span-1,Math.floor(u*span)), sy=Math.min(span-1,Math.floor(vv*span));
+    const idx=(sy*span+sx)*4;
+    const h=(dem[idx]*256+dem[idx+1]+dem[idx+2]/256)-32768;
+    hs.push(h);if(h<hmin)hmin=h;if(h>hmax)hmax=h;
+  }
+  const range=Math.max(1,hmax-hmin);
+  for(let i=0;i<pos.count;i++){pos.setZ(i,(hs[i]-hmin)/range*40);}
+  geo.computeVertexNormals();
+
+  // escena
+  const wrap=document.getElementById('three-wrap');
+  wrap.querySelectorAll('canvas').forEach(c=>c.remove());
+  const W=wrap.clientWidth,H=wrap.clientHeight;
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x06070a);scene.fog=new THREE.Fog(0x06070a,300,600);
+  const cam=new THREE.PerspectiveCamera(50,W/H,0.1,2000);cam.position.set(0,-160,140);cam.up.set(0,0,1);cam.lookAt(0,0,0);
+  const rend=new THREE.WebGLRenderer({antialias:true});rend.setSize(W,H);rend.setPixelRatio(Math.min(devicePixelRatio,2));
+  rend.shadowMap.enabled=true;rend.shadowMap.type=THREE.PCFSoftShadowMap;wrap.appendChild(rend.domElement);
+
+  const tex=new THREE.CanvasTexture(texCanvas);tex.colorSpace=THREE.SRGBColorSpace;
+  const mat=new THREE.MeshStandardMaterial({map:tex,roughness:.95,metalness:0});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.castShadow=true;mesh.receiveShadow=true;
+  const baseZ=1;mesh.scale.z=(+document.getElementById('exag').value/10)*baseZ;
+  scene.add(mesh);
+  scene.add(new THREE.AmbientLight(0xffffff,.5));
+  const sun=new THREE.DirectionalLight(0xfff0d8,1.1);sun.position.set(-100,-80,160);
+  sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.camera.left=-120;sun.shadow.camera.right=120;sun.shadow.camera.top=120;sun.shadow.camera.bottom=-120;
+  sun.shadow.camera.near=1;sun.shadow.camera.far=600;scene.add(sun);
+  // grilla base sutil
+  const grid=new THREE.GridHelper(220,20,0x333322,0x222218);grid.rotation.x=Math.PI/2;grid.position.z=-2;scene.add(grid);
+
+  // controles de órbita propios (sin dependencia extra)
+  let rot={x:-0.7,z:0},dist=220,drag=false,pan={x:0,y:0},lastX,lastY,btn=0;
+  const dom=rend.domElement;
+  dom.addEventListener('mousedown',e=>{drag=true;btn=e.button;lastX=e.clientX;lastY=e.clientY;});
+  window.addEventListener('mouseup',()=>drag=false);
+  window.addEventListener('mousemove',e=>{if(!drag)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;
+    if(btn===2){pan.x-=dx*0.3;pan.y+=dy*0.3;}else{rot.z+=dx*0.01;rot.x+=dy*0.01;rot.x=Math.max(-1.55,Math.min(-0.05,rot.x));}});
+  dom.addEventListener('wheel',e=>{e.preventDefault();dist*=(1+Math.sign(e.deltaY)*0.08);dist=Math.max(60,Math.min(600,dist));},{passive:false});
+  dom.addEventListener('contextmenu',e=>e.preventDefault());
+
+  let alive=true;
+  function render(){
+    cam.position.x=pan.x+dist*Math.sin(rot.z)*Math.cos(rot.x);
+    cam.position.y=pan.y+dist*Math.cos(rot.z)*Math.cos(rot.x);
+    cam.position.z=-dist*Math.sin(rot.x);
+    cam.up.set(0,0,1);cam.lookAt(pan.x,pan.y,0);
+    rend.render(scene,cam);
+  }
+  function loop(){if(!alive)return;requestAnimationFrame(loop);render();}
+  loop();
+  window.addEventListener('resize',()=>{if(!document.getElementById('view3d').classList.contains('on'))return;
+    const W2=wrap.clientWidth,H2=wrap.clientHeight;cam.aspect=W2/H2;cam.updateProjectionMatrix();rend.setSize(W2,H2);});
+
+  threeState={mesh,baseZ,render,sun,setSun,stop:()=>{alive=false;rend.dispose();}};
+  function setSun(hour){
+    // hour 6..19 -> azimut este(6)→oeste(19), altura máx al mediodía
+    const t=(hour-6)/13; // 0..1
+    const az=Math.PI*(1-t); // este a oeste
+    const alt=Math.sin(t*Math.PI)*0.9+0.1; // bajo en extremos, alto al mediodía
+    const r=200;
+    sun.position.set(Math.cos(az)*r*Math.cos(alt*Math.PI/2),Math.sin(az)*r*0.4,r*Math.sin(alt*Math.PI/2)+20);
+    // luz más cálida y tenue cuando está bajo (sombras rasantes)
+    const warm=1-alt;sun.color.setRGB(1,1-warm*0.25,1-warm*0.5);
+    sun.intensity=0.7+alt*0.7;
+    render();
+  }
+  setSun(+document.getElementById('sunHour').value);
+  document.getElementById('three-busy').style.display='none';
+  hud(`Terreno 3D · elevación ${hmin.toFixed(0)}–${hmax.toFixed(0)} m`);
+}
+
+/* control hora solar */
+document.getElementById('sunHour').oninput=e=>{
+  document.getElementById('vsun').textContent=e.target.value;
+  if(threeState&&threeState.setSun)threeState.setSun(+e.target.value);
+};
+
+/* ============ ENTORNO: detectar si hay localStorage (corre afuera) ============ */
+let hasLS=false;
+try{localStorage.setItem('_t','1');localStorage.removeItem('_t');hasLS=true;}catch(e){hasLS=false;}
+document.getElementById('saveMode').textContent=hasLS
+  ? '✓ Autosave activo (corriendo fuera de Claude.ai). Tus puntos se guardan solos.'
+  : 'ℹ Dentro de Claude.ai: guardado en memoria. Exportá el proyecto para conservarlo al cerrar.';
+document.getElementById('apiKeyStat').textContent=hasLS
+  ? 'Pegá tu key para usar la opinión de Claude acá.'
+  : 'Acá dentro de Claude.ai la opinión de Claude ya funciona sin key.';
+
+/* ============ GUARDADO DE PUNTOS ============ */
+let savedPoints=[];
+function persistLS(){ if(hasLS){try{localStorage.setItem('oraculo_points',JSON.stringify(savedPoints));}catch(e){}} }
+function loadLS(){ if(hasLS){try{const d=localStorage.getItem('oraculo_points');if(d)savedPoints=JSON.parse(d);}catch(e){}} }
+loadLS();
+
+function renderSaved(){
+  const el=document.getElementById('savedList');
+  if(!savedPoints.length){el.innerHTML='<div class="note" style="margin-top:0">Todavía no guardaste puntos. Seleccioná uno y tocá "Guardar este punto".</div>';return;}
+  el.innerHTML='';
+  savedPoints.forEach((p,i)=>{
+    const d=document.createElement('div');d.className='saved';
+    d.innerHTML=`<div class="sn">${p.name||'Punto '+(i+1)}</div><div class="sc">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</div><span class="sx" data-i="${i}">✕</span>`;
+    d.onclick=ev=>{if(ev.target.classList.contains('sx'))return;map.flyTo([p.lat,p.lon],p.zoom||13,{duration:1.2});setTimeout(()=>analyze(p.lat,p.lon),700);};
+    el.appendChild(d);
+  });
+  el.querySelectorAll('.sx').forEach(x=>x.onclick=e=>{e.stopPropagation();savedPoints.splice(+x.dataset.i,1);persistLS();renderSaved();});
+}
+renderSaved();
+
+document.getElementById('savePoint').onclick=()=>{
+  if(curLat===undefined){hud('Seleccioná un punto primero');return;}
+  const nm=prompt('Nombre para este punto:', (curWiki[0]&&curWiki[0].title)||`Punto ${savedPoints.length+1}`);
+  if(nm===null)return;
+  savedPoints.push({name:nm,lat:curLat,lon:curLon,zoom:map.getZoom(),notes:document.getElementById('notes').value||'',explored:curExplored,saved:new Date().toISOString()});
+  persistLS();renderSaved();hud('Punto guardado ✓');
+};
+
+/* export / import proyecto */
+document.getElementById('exportProj').onclick=()=>{
+  const blob=new Blob([JSON.stringify({app:'oraculo-sat',version:2,points:savedPoints},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='oraculo-proyecto.json';a.click();
+};
+document.getElementById('importProj').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.points){savedPoints=d.points;persistLS();renderSaved();hud(`Proyecto importado: ${d.points.length} puntos`);}else hud('Archivo sin puntos');}catch(err){hud('Archivo inválido');}};
+  r.readAsText(f);
+};
+document.getElementById('exportKML').onclick=()=>{
+  if(!savedPoints.length){hud('No hay puntos para exportar');return;}
+  let km=`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>ORÁCULO SAT</name>`;
+  savedPoints.forEach(p=>{km+=`\n<Placemark><name>${(p.name||'Punto').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</name><description>${(p.notes||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</description><Point><coordinates>${p.lon},${p.lat},0</coordinates></Point></Placemark>`;});
+  km+=`\n</Document></kml>`;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([km],{type:'application/vnd.google-earth.kml+xml'}));a.download='oraculo-puntos.kml';a.click();
+  hud('KML listo · abrilo en Google Earth');
+};
+
+/* API key opcional */
+let userApiKey='';
+document.getElementById('apiKey').oninput=e=>{userApiKey=e.target.value.trim();};
+
+/* ============ ONBOARDING ============ */
+const obSteps=[
+  {h:'Bienvenido',t:'<b>ORÁCULO SAT</b> analiza cualquier punto del planeta cruzando satélite, historia y visión por computadora. Todo gratis y en tu navegador.'},
+  {h:'1 · Elegí un punto',t:'Hacé <b>clic en cualquier lado del mapa</b> o buscá un lugar. El panel derecho trae al instante qué hay ahí, si fue explorado, fotos reales y links.'},
+  {h:'2 · Analizá',t:'Tocá <b>Capturar zona</b> para realzar la imagen, detectar bordes/anomalías, o pedir la <b>opinión de Claude</b>. Activá la <b>línea de tiempo</b> para comparar años.'},
+  {h:'3 · Profundizá',t:'Levantá el <b>terreno en 3D</b> (con sol y sombras), medí distancias, y <b>guardá tus puntos</b>. Exportá el proyecto o llevalo a Google Earth.'},
+  {h:'Una verdad honesta',t:'El satélite gratis ve ~10m/pixel y la elevación ~30m. Detecta <b>candidatos y anomalías grandes</b>, no objetos chicos. Es un primer filtro potente, no magia.'}
+];
+let obIdx=0;
+function showOb(){
+  const o=document.getElementById('onboard');o.classList.remove('hidden');
+  const s=obSteps[obIdx];
+  document.getElementById('obContent').innerHTML=`<h2 style="margin-top:6px">${s.h}</h2><div class="ob-step">${s.t}</div>`;
+  document.getElementById('obDots').innerHTML=obSteps.map((_,i)=>`<span class="ob-dot ${i===obIdx?'on':''}"></span>`).join('');
+  document.getElementById('obNext').textContent=obIdx===obSteps.length-1?'Empezar':'Siguiente';
+}
+function endOb(){document.getElementById('onboard').classList.add('hidden');if(hasLS){try{localStorage.setItem('oraculo_seen','1');}catch(e){}}}
+document.getElementById('obNext').onclick=()=>{if(obIdx<obSteps.length-1){obIdx++;showOb();}else endOb();};
+document.getElementById('obSkip').onclick=endOb;
+document.getElementById('helpBtn').onclick=()=>{obIdx=0;showOb();};
+// mostrar la primera vez
+let seen=false;if(hasLS){try{seen=localStorage.getItem('oraculo_seen')==='1';}catch(e){}}
+if(!seen){obIdx=0;showOb();}
+
+/* ============ BATIMETRÍA (GEBCO WMS) ============ */
+let bathyLayer=null;
+document.getElementById('bathyBtn').onclick=function(){
+  this.classList.toggle('on');
+  if(bathyLayer){map.removeLayer(bathyLayer);bathyLayer=null;hud('Batimetría desactivada');return;}
+  bathyLayer=L.tileLayer.wms('https://wms.gebco.net/mapserv?',{
+    layers:'GEBCO_LATEST',format:'image/png',transparent:true,opacity:.7,attribution:'GEBCO'
+  });
+  bathyLayer.on('tileerror',()=>hud('GEBCO no responde ahora; reintentá en unos segundos'));
+  bathyLayer.addTo(map);hud('Batimetría GEBCO activada · azul oscuro = más profundo');
+};
+
+/* lectura de profundidad al seleccionar punto (DEM negativo = bajo el mar) */
+async function readDepth(lat,lon){
+  try{
+    const z=10,n=Math.pow(2,z);
+    const tx=Math.floor((lon+180)/360*n);
+    const latR=lat*Math.PI/180;
+    const ty=Math.floor((1-Math.log(Math.tan(latR)+1/Math.cos(latR))/Math.PI)/2*n);
+    const im=await loadImg(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${tx}/${ty}.png`);
+    const cc=document.createElement('canvas');cc.width=256;cc.height=256;const cx2=cc.getContext('2d');cx2.drawImage(im,0,0);
+    const px=Math.floor(((lon+180)/360*n-tx)*256),py=Math.floor(((1-Math.log(Math.tan(latR)+1/Math.cos(latR))/Math.PI)/2*n-ty)*256);
+    const d=cx2.getImageData(Math.min(255,px),Math.min(255,py),1,1).data;
+    const h=(d[0]*256+d[1]+d[2]/256)-32768;
+    return h;
+  }catch(e){return null;}
+}
+async function showDepth(lat,lon){
+  const box=document.getElementById('depthBox');if(!box)return;
+  const h=await readDepth(lat,lon);
+  if(h===null){box.style.display='none';return;}
+  if(h>=0){box.style.display='none';return;} // tierra: no mostrar
+  const depth=-h;
+  let verdict;
+  if(depth<30)verdict='✓ Alcanzable: luz solar penetra, satélite puede ver el fondo en agua clara.';
+  else if(depth<200)verdict='~ Plataforma: requiere sonar o buceo técnico. Satélite ya no ve.';
+  else verdict='✗ Abismal: solo robots submarinos. Inalcanzable para métodos simples.';
+  box.style.display='block';
+  box.innerHTML=`🌊 Profundidad aprox: <b>${depth.toFixed(0)} m</b><br>${verdict}`;
+}
+</script>
+</body>
+</html>
