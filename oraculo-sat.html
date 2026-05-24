@@ -137,6 +137,10 @@
   .ob-dots{display:flex;gap:6px}.ob-dot{width:7px;height:7px;border-radius:50%;background:var(--line)}.ob-dot.on{background:var(--sand)}
   .helpbtn{position:absolute;bottom:14px;left:14px;z-index:500;width:30px;height:30px;border-radius:50%;background:rgba(10,12,8,.92);border:1px solid var(--line);color:var(--sand);cursor:pointer;font-size:14px;backdrop-filter:blur(6px)}
   .helpbtn:hover{border-color:var(--sand)}
+  #langToggle{position:absolute;bottom:14px;left:52px;z-index:500;display:flex;background:rgba(10,12,8,.92);border:1px solid var(--line);border-radius:15px;overflow:hidden;backdrop-filter:blur(6px)}
+  #langToggle button{background:transparent;border:none;color:var(--dim);cursor:pointer;font-family:inherit;font-size:11px;padding:6px 11px;transition:.15s}
+  #langToggle button.on{background:var(--sand);color:#0a0c08;font-weight:600}
+  #langToggle button:hover:not(.on){color:var(--sand)}
 
   /* saved points */
   .saved{border:1px solid var(--line);padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:.15s;position:relative}
@@ -169,13 +173,22 @@
 <div id="onboard" class="hidden">
   <div class="ob-card">
     <h2>ORÁCULO <span>SAT</span></h2>
-    <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">Guía rápida</div>
-    <div id="obContent"></div>
-    <div class="ob-nav">
-      <div class="ob-dots" id="obDots"></div>
-      <div>
-        <button class="btn ghost" id="obSkip" style="width:auto;display:inline-block;margin:0 6px 0 0;padding:8px 14px">Saltar</button>
-        <button class="btn" id="obNext" style="width:auto;display:inline-block;margin:0;padding:8px 18px">Siguiente</button>
+    <div id="langPick" style="margin-top:14px">
+      <div style="font-size:13px;color:var(--pale);margin-bottom:3px" id="langTitle">Elegí tu idioma</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:14px" id="langSubt">Choose your language</div>
+      <button class="btn" id="langEs" style="margin-bottom:8px">🇦🇷 Español</button>
+      <button class="btn" id="langEn">🇬🇧 English</button>
+      <div style="font-size:10px;color:var(--sand);line-height:1.5;margin-top:16px;font-style:italic;text-align:center">Orgullosamente argentino. Como el dulce de leche, como el tango, como Messi. 🇦🇷</div>
+    </div>
+    <div id="obGuide" style="display:none">
+      <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase" id="obKicker">Guía rápida</div>
+      <div id="obContent"></div>
+      <div class="ob-nav">
+        <div class="ob-dots" id="obDots"></div>
+        <div>
+          <button class="btn ghost" id="obSkip" style="width:auto;display:inline-block;margin:0 6px 0 0;padding:8px 14px">Saltar</button>
+          <button class="btn" id="obNext" style="width:auto;display:inline-block;margin:0;padding:8px 18px">Siguiente</button>
+        </div>
       </div>
     </div>
   </div>
@@ -186,31 +199,31 @@
   <div class="col colL">
     <div class="head">
       <h1>ORÁCULO <span>SAT</span></h1>
-      <p>Análisis satelital global · clic en cualquier punto del mundo para inteligencia automática.</p>
+      <p id="txtTagline">Análisis satelital global · clic en cualquier punto del mundo para inteligencia automática.</p>
       <div class="status">
         <span class="pill load" id="pcv">⟳ visión</span>
-        <span class="pill ok">✓ mapa global</span>
-        <span class="pill ok">✓ Wikipedia</span>
+        <span class="pill ok" id="txtMapOk">✓ mapa global</span>
+        <span class="pill ok" id="txtWikiOk">✓ Wikipedia</span>
       </div>
     </div>
     <div class="scroll">
       <div class="sect">
-        <div class="sect-t">Capa base</div>
+        <div class="sect-t" id="txtSecBase">Capa base</div>
         <div id="layers"></div>
       </div>
       <div class="sect">
-        <div class="sect-t">Zonas precargadas</div>
+        <div class="sect-t" id="txtSecZones">Zonas precargadas</div>
         <div id="targets"></div>
-        <div class="note">O tocá cualquier punto del planeta en el mapa.</div>
+        <div class="note" id="txtZonesNote">O tocá cualquier punto del planeta en el mapa.</div>
       </div>
       <div class="sect">
-        <div class="sect-t">Análisis temporal</div>
+        <div class="sect-t" id="txtSecTemporal">Análisis temporal</div>
         <button class="btn ghost" id="toggleTL">Activar línea de tiempo Sentinel</button>
-        <div class="note">Compará la misma zona en distintas fechas. Lo que no cambia entre años = candidato (ruina, naufragio). Lo que varía = agua, vegetación.</div>
+        <div class="note" id="txtTlNote">Compará la misma zona en distintas fechas. Lo que no cambia entre años = candidato (ruina, naufragio). Lo que varía = agua, vegetación.</div>
       </div>
 
       <div class="sect">
-        <div class="sect-t">Mis investigaciones</div>
+        <div class="sect-t" id="txtSecSaved">Mis investigaciones</div>
         <div id="savedList"><div class="note" style="margin-top:0">Todavía no guardaste puntos. Seleccioná uno y tocá "Guardar punto" en el panel derecho.</div></div>
         <button class="btn ghost" id="exportProj" style="margin-top:8px">↧ Exportar proyecto (.json)</button>
         <button class="btn ghost" id="importProj">↥ Importar proyecto</button>
@@ -220,8 +233,8 @@
       </div>
 
       <div class="sect">
-        <div class="sect-t">Configuración API</div>
-        <div class="note" style="margin-top:0">Opcional. Si usás este archivo descargado (fuera de Claude.ai), pegá tu API key de Anthropic para que funcione la opinión de Claude.</div>
+        <div class="sect-t" id="txtSecApi">Configuración API</div>
+        <div class="note" style="margin-top:0" id="txtApiNote">Opcional. Si usás este archivo descargado (fuera de Claude.ai), pegá tu API key de Anthropic para que funcione la opinión de Claude.</div>
         <input type="password" id="apiKey" placeholder="sk-ant-… (opcional)" style="width:100%;margin-top:8px;background:#0a0c07;border:1px solid var(--line);color:var(--pale);font-family:inherit;font-size:10px;padding:8px">
         <div class="note" id="apiKeyStat" style="margin-top:5px"></div>
       </div>
@@ -237,11 +250,15 @@
     </div>
     <div id="hud">Tocá cualquier punto del mundo para analizarlo</div>
     <div id="mapctrl" style="position:absolute;top:14px;right:14px;z-index:500;display:flex;flex-direction:column;gap:5px">
-      <button class="mc" id="measureBtn" title="Medir distancias y áreas">📐 Medir</button>
-      <button class="mc" id="curtainBtn" title="Comparar dos años con cortina">◑ Comparar años</button>
-      <button class="mc" id="bathyBtn" title="Capa de profundidad del mar">🌊 Batimetría</button>
+      <button class="mc" id="measureBtn" title="Medir / Measure">📐 Medir</button>
+      <button class="mc" id="curtainBtn" title="Comparar / Compare">◑ Comparar años</button>
+      <button class="mc" id="bathyBtn" title="Batimetría / Bathymetry">🌊 Batimetría</button>
     </div>
     <button class="helpbtn" id="helpBtn" title="Ver guía">?</button>
+    <div id="langToggle">
+      <button id="ltEs">ES</button>
+      <button id="ltEn">EN</button>
+    </div>
     <div id="timeline">
       <div class="tl-t"><span>LÍNEA DE TIEMPO · SENTINEL-2</span><span id="tlYear">—</span></div>
       <input type="range" id="tlSlider" min="0" max="6" value="6">
@@ -258,9 +275,9 @@
       <div class="stagebar">
         <div class="t">TERRENO <span>3D</span></div>
         <div style="display:flex;align-items:center;gap:14px">
-          <label style="font-size:10px;color:var(--dim)">Exageración vertical <span id="vexag">3.0</span>×
+          <label style="font-size:10px;color:var(--dim)"><span id="txtExag">Exageración vertical</span> <span id="vexag">3.0</span>×
             <input type="range" id="exag" min="10" max="80" value="30" style="vertical-align:middle;accent-color:var(--rust)"></label>
-          <label style="font-size:10px;color:var(--dim)">☀ Hora <span id="vsun">14</span>h
+          <label style="font-size:10px;color:var(--dim)"><span id="txtSun">☀ Hora</span> <span id="vsun">14</span>h
             <input type="range" id="sunHour" min="6" max="19" value="14" style="vertical-align:middle;accent-color:var(--sand)"></label>
           <button class="xbtn" id="close3D">✕ volver al mapa</button>
         </div>
@@ -283,8 +300,8 @@
   <!-- RIGHT -->
   <div class="col colR">
     <div class="head">
-      <h1>INTELIGENCIA</h1>
-      <p>Contexto histórico, fotos reales y herramientas de análisis del punto seleccionado.</p>
+      <h1 id="txtIntelTitle">INTELIGENCIA</h1>
+      <p id="txtIntelSub">Contexto histórico, fotos reales y herramientas de análisis del punto seleccionado.</p>
     </div>
     <div class="scroll">
       <div id="intel">
@@ -292,7 +309,7 @@
       </div>
 
       <div class="sect" id="toolsSect" style="display:none">
-        <div class="sect-t">Análisis de imagen</div>
+        <div class="sect-t" id="txtSecImg">Análisis de imagen</div>
         <button class="btn" id="savePoint" style="margin-bottom:8px">★ Guardar este punto</button>
         <button class="btn" id="grabMap">Capturar zona y analizar →</button>
         <div style="margin-top:8px">
@@ -310,29 +327,29 @@
       </div>
 
       <div class="sect" id="changeSect" style="display:none">
-        <div class="sect-t">Detección de cambios</div>
-        <div class="note" style="margin-top:0">Activá la línea de tiempo, elegí dos años y el sistema marca en rojo lo que cambió entre ambos. Lo que NO cambia entre fechas = candidato permanente (ruina, naufragio, estructura).</div>
+        <div class="sect-t" id="txtSecChange">Detección de cambios</div>
+        <div class="note" style="margin-top:0" id="txtChangeNote">Activá la línea de tiempo, elegí dos años y el sistema marca en rojo lo que cambió entre ambos. Lo que NO cambia entre fechas = candidato permanente (ruina, naufragio, estructura).</div>
         <div class="slider"><label>Año A <span id="vya">2019</span></label><input type="range" id="yearA" min="0" max="6" value="0"></div>
         <div class="slider"><label>Año B <span id="vyb">2025</span></label><input type="range" id="yearB" min="0" max="6" value="6"></div>
         <button class="btn" id="runChange">Comparar y detectar cambios</button>
       </div>
 
       <div class="sect" id="claudeSect" style="display:none">
-        <div class="sect-t">Segunda opinión · Claude</div>
-        <div class="note" style="margin-top:0">Claude analiza la imagen actual de la mesa de análisis y da una interpretación experta de lo que ve: anomalías, posibles estructuras, qué investigar.</div>
+        <div class="sect-t" id="txtSecClaude">Segunda opinión · Claude</div>
+        <div class="note" style="margin-top:0" id="txtClaudeNote">Claude analiza la imagen actual de la mesa de análisis y da una interpretación experta de lo que ve: anomalías, posibles estructuras, qué investigar.</div>
         <button class="btn" id="askClaude">🔮 Pedir interpretación de Claude</button>
         <div id="claudeOut" style="font-size:10px;color:var(--pale);line-height:1.6;margin-top:10px"></div>
       </div>
 
       <div class="sect" id="dossierSect" style="display:none">
-        <div class="sect-t">Terreno 3D</div>
-        <div class="note" style="margin-top:0">Levanta en 3D el pedazo de terreno que estás viendo, con elevación real (DEM). La exageración vertical hace visibles montículos, terrazas y fosos que en plano no se notan.</div>
+        <div class="sect-t" id="txtSecTerrain">Terreno 3D</div>
+        <div class="note" style="margin-top:0" id="txtTerrainNote">Levanta en 3D el pedazo de terreno que estás viendo, con elevación real (DEM). La exageración vertical hace visibles montículos, terrazas y fosos que en plano no se notan.</div>
         <button class="btn" id="open3D">⛰ Abrir terreno en 3D</button>
       </div>
 
       <div class="sect" id="dossierSect2" style="display:none">
-        <div class="sect-t">Dossier de investigación</div>
-        <div class="note" style="margin-top:0">Genera un informe descargable (HTML imprimible a PDF) con el punto, contexto histórico, hallazgos OSM, links y notas.</div>
+        <div class="sect-t" id="txtSecDossier">Dossier de investigación</div>
+        <div class="note" style="margin-top:0" id="txtDossierNote">Genera un informe descargable (HTML imprimible a PDF) con el punto, contexto histórico, hallazgos OSM, links y notas.</div>
         <textarea id="notes" placeholder="Tus notas sobre este punto…" style="width:100%;margin-top:8px;background:#0a0c07;border:1px solid var(--line);color:var(--pale);font-family:inherit;font-size:10px;padding:8px;min-height:60px;resize:vertical"></textarea>
         <button class="btn" id="makeDossier">📑 Generar dossier</button>
       </div>
@@ -340,6 +357,7 @@
     <div class="sig">
       <div class="pb">Powered by</div>
       <div class="name">Max Sarlija</div>
+      <div id="txtProudly" style="font-size:9px;color:var(--dim);line-height:1.5;margin-top:12px;font-style:italic">Orgullosamente argentino. Como el dulce de leche, como el tango, como Messi. 🇦🇷</div>
     </div>
   </div>
 
@@ -350,6 +368,99 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+/* ============ i18n ============ */
+const T={
+  es:{
+    tagline:'Análisis satelital global · clic en cualquier punto del mundo para inteligencia automática.',
+    pcv:'⟳ visión', mapOk:'✓ mapa global', wikiOk:'✓ Wikipedia',
+    secBase:'Capa base', secZones:'Zonas precargadas', zonesNote:'O tocá cualquier punto del planeta en el mapa.',
+    secTemporal:'Análisis temporal', tlBtn:'Activar línea de tiempo Sentinel', tlNote:'Compará la misma zona en distintas fechas. Lo que no cambia entre años = candidato (ruina, naufragio). Lo que varía = agua, vegetación.',
+    secSaved:'Mis investigaciones', savedEmpty:'Todavía no guardaste puntos. Seleccioná uno y tocá "Guardar este punto".',
+    exportProj:'↧ Exportar proyecto (.json)', importProj:'↥ Importar proyecto', exportKML:'🌍 Exportar a Google Earth (.kml)',
+    secApi:'Configuración API', apiNote:'Opcional. Si usás este archivo descargado (fuera de Claude.ai), pegá tu API key de Anthropic para que funcione la opinión de Claude.',
+    intelTitle:'INTELIGENCIA', intelSub:'Contexto histórico, fotos reales y herramientas de análisis del punto seleccionado.',
+    intelEmpty:'Tocá un punto en el mapa.<br>El sistema traerá qué hay ahí, si fue explorado, fotos reales y links de investigación.',
+    toolsTitle:'HERRAMIENTAS', savePoint:'★ Guardar este punto', grabMap:'Capturar zona y analizar →',
+    secImgAnalysis:'Análisis de imagen', secDetect:'Detección', secEnhance:'Realce espectral',
+    secTerrain:'Terreno 3D', terrainNote:'Levanta en 3D el pedazo de terreno que estás viendo, con elevación real (DEM). La exageración vertical hace visibles montículos, terrazas y fosos que en plano no se notan.', open3D:'⛰ Abrir terreno en 3D',
+    secDossier:'Dossier de investigación', dossierNote:'Genera un informe descargable (HTML imprimible a PDF) con el punto, contexto histórico, hallazgos OSM, links y notas.', makeDossier:'📑 Generar dossier', notesPh:'Tus notas sobre este punto…',
+    secChange:'Detección de cambios', changeNote:'Activá la línea de tiempo, elegí dos años y el sistema marca en rojo lo que cambió entre ambos. Lo que NO cambia entre fechas = candidato permanente (ruina, naufragio, estructura).', runChange:'Comparar y detectar cambios',
+    secClaude:'Segunda opinión · Claude', claudeNote:'Claude analiza la imagen actual de la mesa de análisis y da una interpretación experta de lo que ve: anomalías, posibles estructuras, qué investigar.', askClaude:'🔮 Pedir interpretación de Claude',
+    searchPh:'Buscar lugar…', hudDefault:'Tocá cualquier punto del mundo para analizarlo',
+    measure:'📐 Medir', compare:'◑ Comparar años', bathy:'🌊 Batimetría',
+    obNext:'Siguiente', obStart:'Empezar', obSkip:'Saltar',
+    chooseLang:'Elegí tu idioma', langSub:'Choose your language',
+    savePointName:'Nombre para este punto:', savedOk:'Punto guardado ✓',
+    close3D:'✕ volver al mapa', backMap:'✕ volver al mapa', exag:'Exageración vertical', sunHour:'☀ Hora',
+    proudly:'Orgullosamente argentino. Como el dulce de leche, como el tango, como Messi. 🇦🇷'
+  },
+  en:{
+    tagline:'Global satellite analysis · click any point on Earth for automatic intelligence.',
+    pcv:'⟳ vision', mapOk:'✓ global map', wikiOk:'✓ Wikipedia',
+    secBase:'Base layer', secZones:'Preloaded zones', zonesNote:'Or click any point on the planet on the map.',
+    secTemporal:'Temporal analysis', tlBtn:'Enable Sentinel timeline', tlNote:'Compare the same area across dates. What stays the same between years = candidate (ruin, wreck). What varies = water, vegetation.',
+    secSaved:'My investigations', savedEmpty:'No saved points yet. Select one and tap "Save this point".',
+    exportProj:'↧ Export project (.json)', importProj:'↥ Import project', exportKML:'🌍 Export to Google Earth (.kml)',
+    secApi:'API configuration', apiNote:'Optional. If you run this file downloaded (outside Claude.ai), paste your Anthropic API key to enable the Claude opinion.',
+    intelTitle:'INTELLIGENCE', intelSub:'Historical context, real photos and analysis tools for the selected point.',
+    intelEmpty:'Click a point on the map.<br>The system will bring what\'s there, whether it was explored, real photos and research links.',
+    toolsTitle:'TOOLS', savePoint:'★ Save this point', grabMap:'Capture area & analyze →',
+    secImgAnalysis:'Image analysis', secDetect:'Detection', secEnhance:'Spectral enhancement',
+    secTerrain:'3D Terrain', terrainNote:'Lifts the terrain you\'re viewing into 3D, with real elevation (DEM). Vertical exaggeration makes mounds, terraces and pits visible that are flat to the eye.', open3D:'⛰ Open terrain in 3D',
+    secDossier:'Research dossier', dossierNote:'Generates a downloadable report (HTML printable to PDF) with the point, historical context, OSM findings, links and notes.', makeDossier:'📑 Generate dossier', notesPh:'Your notes about this point…',
+    secChange:'Change detection', changeNote:'Enable the timeline, pick two years and the system marks in red what changed between them. What does NOT change = permanent candidate (ruin, wreck, structure).', runChange:'Compare & detect changes',
+    secClaude:'Second opinion · Claude', claudeNote:'Claude analyzes the current image on the analysis table and gives an expert interpretation: anomalies, possible structures, what to investigate.', askClaude:'🔮 Ask Claude for interpretation',
+    searchPh:'Search a place…', hudDefault:'Click any point on Earth to analyze it',
+    measure:'📐 Measure', compare:'◑ Compare years', bathy:'🌊 Bathymetry',
+    obNext:'Next', obStart:'Start', obSkip:'Skip',
+    chooseLang:'Choose your language', langSub:'Elegí tu idioma',
+    savePointName:'Name for this point:', savedOk:'Point saved ✓',
+    close3D:'✕ back to map', backMap:'✕ back to map', exag:'Vertical exaggeration', sunHour:'☀ Hour',
+    proudly:'Proudly Argentine. Like dulce de leche, like tango, like Messi. 🇦🇷'
+  }
+};
+let LANG='es';
+function t(k){return (T[LANG]&&T[LANG][k])||T.es[k]||k;}
+
+const obStepsByLang={
+  es:[
+    {h:'Bienvenido',t:'<b>ORÁCULO SAT</b> analiza cualquier punto del planeta cruzando satélite, historia y visión por computadora. Todo gratis y en tu navegador.'},
+    {h:'1 · Elegí un punto',t:'Hacé <b>clic en cualquier lado del mapa</b> o buscá un lugar. El panel derecho trae al instante qué hay ahí, si fue explorado, fotos reales y links.'},
+    {h:'2 · Analizá',t:'Tocá <b>Capturar zona</b> para realzar la imagen, detectar bordes/anomalías, o pedir la <b>opinión de Claude</b>. Activá la <b>línea de tiempo</b> para comparar años.'},
+    {h:'3 · Profundizá',t:'Levantá el <b>terreno en 3D</b> (con sol y sombras), medí distancias, y <b>guardá tus puntos</b>. Exportá el proyecto o llevalo a Google Earth.'},
+    {h:'Una verdad honesta',t:'El satélite gratis ve ~10m/pixel y la elevación ~30m. Detecta <b>candidatos y anomalías grandes</b>, no objetos chicos. Es un primer filtro potente, no magia.'}
+  ],
+  en:[
+    {h:'Welcome',t:'<b>ORÁCULO SAT</b> analyzes any point on the planet, crossing satellite, history and computer vision. All free and in your browser.'},
+    {h:'1 · Pick a point',t:'<b>Click anywhere on the map</b> or search a place. The right panel instantly brings what\'s there, whether it was explored, real photos and links.'},
+    {h:'2 · Analyze',t:'Tap <b>Capture area</b> to enhance the image, detect edges/anomalies, or ask for <b>Claude\'s opinion</b>. Enable the <b>timeline</b> to compare years.'},
+    {h:'3 · Go deeper',t:'Lift the <b>terrain into 3D</b> (with sun and shadows), measure distances, and <b>save your points</b>. Export the project or take it to Google Earth.'},
+    {h:'An honest truth',t:'Free satellite sees ~10m/pixel and elevation ~30m. It detects <b>candidates and large anomalies</b>, not small objects. A powerful first filter, not magic.'}
+  ]
+};
+
+function applyLang(){
+  const set=(id,val,attr)=>{const el=document.getElementById(id);if(!el)return;if(attr==='ph')el.placeholder=val;else el.innerHTML=val;};
+  set('txtTagline',t('tagline'));set('pcv',t('pcv'));set('txtMapOk',t('mapOk'));set('txtWikiOk',t('wikiOk'));
+  set('txtSecBase',t('secBase'));set('txtSecZones',t('secZones'));set('txtZonesNote',t('zonesNote'));
+  set('txtSecTemporal',t('secTemporal'));set('toggleTL',t('tlBtn'));set('txtTlNote',t('tlNote'));
+  set('txtSecSaved',t('secSaved'));set('exportProj',t('exportProj'));set('importProj',t('importProj'));set('exportKML',t('exportKML'));
+  set('txtSecApi',t('secApi'));set('txtApiNote',t('apiNote'));set('apiKey',t('','ph'));
+  set('txtIntelTitle',t('intelTitle'));set('txtIntelSub',t('intelSub'));
+  set('txtToolsTitle',t('toolsTitle'));set('savePoint',t('savePoint'));set('grabMap',t('grabMap'));
+  set('txtSecImg',t('secImgAnalysis'));set('txtSecEnhance',t('secEnhance'));set('txtSecDetect',t('secDetect'));
+  set('txtSecTerrain',t('secTerrain'));set('txtTerrainNote',t('terrainNote'));set('open3D',t('open3D'));
+  set('txtSecDossier',t('secDossier'));set('txtDossierNote',t('dossierNote'));set('makeDossier',t('makeDossier'));set('notes',t('notesPh'),'ph');
+  set('txtSecChange',t('secChange'));set('txtChangeNote',t('changeNote'));set('runChange',t('runChange'));
+  set('txtSecClaude',t('secClaude'));set('txtClaudeNote',t('claudeNote'));set('askClaude',t('askClaude'));
+  set('search',t('searchPh'),'ph');set('measureBtn',t('measure'));set('curtainBtn',t('compare'));set('bathyBtn',t('bathy'));
+  set('close3D',t('close3D'));set('txtExag',t('exag'));set('txtSun',t('sunHour'));
+  set('txtProudly',t('proudly'));
+  // intel vacío solo si no hay punto seleccionado
+  if(typeof curLat==='undefined'){const ie=document.querySelector('.intel-empty');if(ie)ie.innerHTML='<span class="big">◎</span>'+t('intelEmpty');}
+  const h=document.getElementById('hud');if(h&&(!h.dataset.active))h.textContent=t('hudDefault');
+}
+
 /* ============ MAP ============ */
 const map=L.map('map',{zoomControl:true,attributionControl:false}).setView([-32.89,-69.05],6);
 const bases={
@@ -387,7 +498,7 @@ targets.forEach(t=>{const lbl={arq:'ARQ',min:'MIN',agua:'AGUA',nau:'NAUF'}[t.t];
 let marker=null,measuring=false;
 map.on('click',e=>{if(!measuring)analyze(e.latlng.lat,e.latlng.lng);});
 
-let ht;function hud(t){const h=document.getElementById('hud');h.textContent=t;clearTimeout(ht);ht=setTimeout(()=>h.textContent='Tocá cualquier punto del mundo para analizarlo',3000);}
+let ht;function hud(msg){const h=document.getElementById('hud');h.textContent=msg;h.dataset.active='1';clearTimeout(ht);ht=setTimeout(()=>{h.textContent=t('hudDefault');h.dataset.active='';},3000);}
 
 /* search (Nominatim, gratis) */
 document.getElementById('searchBtn').onclick=doSearch;
@@ -964,11 +1075,11 @@ function renderSaved(){
 renderSaved();
 
 document.getElementById('savePoint').onclick=()=>{
-  if(curLat===undefined){hud('Seleccioná un punto primero');return;}
-  const nm=prompt('Nombre para este punto:', (curWiki[0]&&curWiki[0].title)||`Punto ${savedPoints.length+1}`);
+  if(curLat===undefined){hud(t('hudDefault'));return;}
+  const nm=prompt(t('savePointName'), (curWiki[0]&&curWiki[0].title)||`${LANG==='es'?'Punto':'Point'} ${savedPoints.length+1}`);
   if(nm===null)return;
   savedPoints.push({name:nm,lat:curLat,lon:curLon,zoom:map.getZoom(),notes:document.getElementById('notes').value||'',explored:curExplored,saved:new Date().toISOString()});
-  persistLS();renderSaved();hud('Punto guardado ✓');
+  persistLS();renderSaved();hud(t('savedOk'));
 };
 
 /* export / import proyecto */
@@ -995,29 +1106,49 @@ document.getElementById('exportKML').onclick=()=>{
 let userApiKey='';
 document.getElementById('apiKey').oninput=e=>{userApiKey=e.target.value.trim();};
 
-/* ============ ONBOARDING ============ */
-const obSteps=[
-  {h:'Bienvenido',t:'<b>ORÁCULO SAT</b> analiza cualquier punto del planeta cruzando satélite, historia y visión por computadora. Todo gratis y en tu navegador.'},
-  {h:'1 · Elegí un punto',t:'Hacé <b>clic en cualquier lado del mapa</b> o buscá un lugar. El panel derecho trae al instante qué hay ahí, si fue explorado, fotos reales y links.'},
-  {h:'2 · Analizá',t:'Tocá <b>Capturar zona</b> para realzar la imagen, detectar bordes/anomalías, o pedir la <b>opinión de Claude</b>. Activá la <b>línea de tiempo</b> para comparar años.'},
-  {h:'3 · Profundizá',t:'Levantá el <b>terreno en 3D</b> (con sol y sombras), medí distancias, y <b>guardá tus puntos</b>. Exportá el proyecto o llevalo a Google Earth.'},
-  {h:'Una verdad honesta',t:'El satélite gratis ve ~10m/pixel y la elevación ~30m. Detecta <b>candidatos y anomalías grandes</b>, no objetos chicos. Es un primer filtro potente, no magia.'}
-];
-let obIdx=0;
-function showOb(){
-  const o=document.getElementById('onboard');o.classList.remove('hidden');
-  const s=obSteps[obIdx];
-  document.getElementById('obContent').innerHTML=`<h2 style="margin-top:6px">${s.h}</h2><div class="ob-step">${s.t}</div>`;
-  document.getElementById('obDots').innerHTML=obSteps.map((_,i)=>`<span class="ob-dot ${i===obIdx?'on':''}"></span>`).join('');
-  document.getElementById('obNext').textContent=obIdx===obSteps.length-1?'Empezar':'Siguiente';
+/* ============ ONBOARDING + IDIOMA ============ */
+let obIdx=0, langChosen=false;
+function showLangPick(){
+  document.getElementById('onboard').classList.remove('hidden');
+  document.getElementById('langPick').style.display='block';
+  document.getElementById('obGuide').style.display='none';
 }
+function startGuide(){
+  document.getElementById('langPick').style.display='none';
+  document.getElementById('obGuide').style.display='block';
+  obIdx=0;showOb();
+}
+function showOb(){
+  const steps=obStepsByLang[LANG];
+  const s=steps[obIdx];
+  document.getElementById('obKicker').textContent = LANG==='es'?'Guía rápida':'Quick guide';
+  document.getElementById('obContent').innerHTML=`<h2 style="margin-top:6px">${s.h}</h2><div class="ob-step">${s.t}</div>`;
+  document.getElementById('obDots').innerHTML=steps.map((_,i)=>`<span class="ob-dot ${i===obIdx?'on':''}"></span>`).join('');
+  document.getElementById('obNext').textContent=obIdx===steps.length-1?t('obStart'):t('obNext');
+  document.getElementById('obSkip').textContent=t('obSkip');
+}
+function setLang(l){
+  LANG=l;langChosen=true;applyLang();
+  const es=document.getElementById('ltEs'),en=document.getElementById('ltEn');
+  if(es&&en){es.classList.toggle('on',l==='es');en.classList.toggle('on',l==='en');}
+  if(hasLS){try{localStorage.setItem('oraculo_lang',l);}catch(e){}}
+}
+document.getElementById('ltEs').onclick=()=>setLang('es');
+document.getElementById('ltEn').onclick=()=>setLang('en');
 function endOb(){document.getElementById('onboard').classList.add('hidden');if(hasLS){try{localStorage.setItem('oraculo_seen','1');}catch(e){}}}
-document.getElementById('obNext').onclick=()=>{if(obIdx<obSteps.length-1){obIdx++;showOb();}else endOb();};
+document.getElementById('langEs').onclick=()=>{setLang('es');startGuide();};
+document.getElementById('langEn').onclick=()=>{setLang('en');startGuide();};
+document.getElementById('obNext').onclick=()=>{const steps=obStepsByLang[LANG];if(obIdx<steps.length-1){obIdx++;showOb();}else endOb();};
 document.getElementById('obSkip').onclick=endOb;
-document.getElementById('helpBtn').onclick=()=>{obIdx=0;showOb();};
-// mostrar la primera vez
-let seen=false;if(hasLS){try{seen=localStorage.getItem('oraculo_seen')==='1';}catch(e){}}
-if(!seen){obIdx=0;showOb();}
+document.getElementById('helpBtn').onclick=()=>{document.getElementById('onboard').classList.remove('hidden');startGuide();};
+
+// idioma guardado + primera vez
+let savedLang=null,seen=false;
+if(hasLS){try{savedLang=localStorage.getItem('oraculo_lang');seen=localStorage.getItem('oraculo_seen')==='1';}catch(e){}}
+if(savedLang){LANG=savedLang;applyLang();} else { applyLang(); }
+// sincronizar estado visual del toggle
+(function(){const es=document.getElementById('ltEs'),en=document.getElementById('ltEn');if(es&&en){es.classList.toggle('on',LANG==='es');en.classList.toggle('on',LANG==='en');}})();
+if(!seen){ if(savedLang){startGuide();document.getElementById('onboard').classList.remove('hidden');} else { showLangPick(); } }
 
 /* ============ BATIMETRÍA (GEBCO WMS) ============ */
 let bathyLayer=null;
